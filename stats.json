@@ -1,16 +1,12 @@
 {
   "data_gouv": {
-    "discussions": 5,
-    "downloads": 11381,
-    "formats": {
-      "CSV": 5476,
-      "JSON": 1977,
-      "SQL": 3928
-    },
-    "last_update": "2018-08-02T09:03:45.035000+00:00",
-    "quality": 78,
+    "discussions": 0,
+    "downloads": 11411,
+    "formats": {},
+    "last_update": "2026-10-02T19:38:12+00:00",
+    "quality": 100,
     "reuses": 3,
-    "views": 49806
+    "views": 49929
   },
   "dataset": {
     "cities": 35510,
@@ -28,13 +24,13 @@
     "successions": 8480
   },
   "github": {
-    "clones_total": 209,
-    "last_commit": "2026-10-02T15:06:06Z",
-    "open_issues": 0,
-    "release_downloads": 1233,
+    "clones_total": 774,
+    "last_commit": "2026-10-02T16:30:55Z",
+    "open_issues": 2,
+    "release_downloads": 1289,
     "tracked_since": "2026-09-18",
-    "views_total": 54,
-    "visitors_14d": 14
+    "views_total": 67,
+    "visitors_14d": 19
   },
   "history": {
     "clones": {
@@ -93,6 +89,18 @@
       "2026-10-01": {
         "count": 191,
         "uniques": 74
+      },
+      "2026-10-02": {
+        "count": 418,
+        "uniques": 157
+      },
+      "2026-10-03": {
+        "count": 99,
+        "uniques": 52
+      },
+      "2026-10-04": {
+        "count": 48,
+        "uniques": 28
       }
     },
     "views": {
@@ -151,8 +159,20 @@
       "2026-10-01": {
         "count": 6,
         "uniques": 3
+      },
+      "2026-10-02": {
+        "count": 6,
+        "uniques": 5
+      },
+      "2026-10-03": {
+        "count": 6,
+        "uniques": 6
+      },
+      "2026-10-04": {
+        "count": 1,
+        "uniques": 1
       }
     }
   },
-  "updated_at": "2026-10-02"
+  "updated_at": "2026-10-05"
 }
