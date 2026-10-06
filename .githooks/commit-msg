@@ -1,94 +1,58 @@
 #!/usr/bin/env bash
 # Commit message validation hook
-# Published by: zairakai/laravel-dev-tools
+# Copied from stanislas-poisson/php-dev-tools 1.0.0, which aligned on the commit convention of the zairakai handbook
+# (policies/git-rules.md), which is the only convention of the zairakai tools:
 #
-# Enforces Conventional Commits format:
-# <type>(scope): #TICKET subject
+#   <type>(<scope>): #TICKET <subject>
 #
-# Types: feat|fix|docs|style|refactor|test|chore|perf|ci|build
-# Example: feat(auth): #123 add user authentication
+#   - type: feat, fix, docs, style, refactor, perf, test, chore, ci or build
+#   - scope: optional, in lowercase
+#   - #TICKET: the number of the issue
+#   - the first line has 72 characters at most, and the second line is blank
 #
-# Special case: WIP commits are always allowed
-# Example: WIP
-# Example: WIP add user authentication (in progress)
+# A work in progress follows the same format. The messages that Git writes itself
+# (Merge, Revert, fixup!, squash!) are accepted as they are.
+#
+# To bypass (emergency only):
+#   git commit --no-verify
 
-commit_msg=$(cat "$1")
+commit_msg_file="$1"
+first_line=$(sed -n 1p "$commit_msg_file")
+second_line=$(sed -n 2p "$commit_msg_file")
 
-# ============================================================================
-# WIP Exception - always allowed, no validation needed
-# ============================================================================
+case "$first_line" in
+    "Merge "* | "Revert \""* | "fixup! "* | "squash! "* | "amend! "*) exit 0 ;;
+esac
 
-if echo "$commit_msg" | grep -qiE "^WIP(\s|$)"; then
-    echo "✅ WIP commit accepted"
-    exit 0
-fi
+PATTERN='^(feat|fix|docs|style|refactor|perf|test|chore|ci|build)(\([a-z0-9][a-z0-9._/-]*\))?: #[0-9]+ [^[:space:]].*$'
 
-# ============================================================================
-# Conventional Commits format validation
-# Format: <type>(optional-scope): optional-#TICKET subject (min 10 chars)
-# ============================================================================
-
-VALID_TYPES="feat|fix|docs|style|refactor|test|chore|perf|ci|build"
-COMMIT_PATTERN="^(${VALID_TYPES})(\(.+\))?: (#[0-9]+\s)?[a-z].{10,}"
-
-if ! echo "$commit_msg" | grep -qE "$COMMIT_PATTERN"; then
+fail() {
     echo ""
-    echo "❌ Invalid commit message format"
+    echo "❌ $1"
     echo ""
-    echo "━━━━━━━━━━━━━━━━"
-    echo "  Expected format:"
-    echo "  <type>(scope): #TICKET subject"
-    echo "━━━━━━━━━━━━━━━━"
+    echo "  Format of the zairakai handbook:  <type>(<scope>): #TICKET <subject>"
+    echo "  Types: feat, fix, docs, style, refactor, perf, test, chore, ci, build"
     echo ""
-    echo "  Your message: \"$commit_msg\""
-    echo ""
-    echo "  Valid types: feat, fix, docs, style, refactor,"
-    echo "               test, chore, perf, ci, build"
-    echo ""
-    echo "  Rules:"
-    echo "    ✓ Type is required (feat, fix, chore...)"
-    echo "    ✓ Scope is optional  → feat(auth): ..."
-    echo "    ✓ Ticket is optional → feat: #123 ..."
-    echo "    ✓ Subject must start with lowercase"
-    echo "    ✓ Subject must be at least 10 characters"
-    echo "    ✓ Use WIP to bypass validation"
+    echo "  Your message: \"$first_line\""
     echo ""
     echo "  Examples:"
-    echo "    feat(auth): add user authentication"
-    echo "    fix(api): #456 correct email validation logic"
-    echo "    chore: update dependencies"
-    echo "    docs: add installation guide to readme"
-    echo "    WIP (work in progress, skips validation)"
+    echo "    feat(auth): #102 add OAuth2 provider support"
+    echo "    fix(api): #87 handle null response from payment gateway"
+    echo "    docs: #31 update installation instructions"
     echo ""
     exit 1
+}
+
+if ! [[ $first_line =~ $PATTERN ]]; then
+    fail "Invalid commit message format"
 fi
 
-# ============================================================================
-# First line length check (max 72 characters)
-# ============================================================================
+if [[ ${#first_line} -gt 72 ]]; then
+    fail "The first line has ${#first_line} characters: the limit is 72"
+fi
 
-first_line=$(echo "$commit_msg" | head -n1)
-first_line_length=${#first_line}
-
-if [[ $first_line_length -gt 72 ]]; then
-    echo ""
-    echo "❌ Commit message first line too long"
-    echo ""
-    echo "━━━━━━━━━━━━━━━━"
-    echo "  Length: ${first_line_length}/72 characters"
-    echo "━━━━━━━━━━━━━━━━"
-    echo ""
-    echo "  Your message: \"${first_line}\""
-    echo ""
-    echo "  Why 72 chars? Git log, GitHub and GitLab"
-    echo "  truncate longer messages in their interfaces."
-    echo ""
-    echo "  Tips:"
-    echo "    ✓ Move details to the commit body (2nd paragraph)"
-    echo "    ✓ Use abbreviations when possible"
-    echo "    ✓ Reference tickets instead of explaining them"
-    echo ""
-    exit 1
+if [[ -n $second_line ]]; then
+    fail "The second line must be blank"
 fi
 
 echo "✅ Commit message OK"

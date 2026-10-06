@@ -86,8 +86,8 @@ horizon-logs: ## Follow the logs of the Horizon workers
 EXPORT_DIR ?= storage/app/exports
 
 .PHONY: export
-export: ## Export the dataset and its history to CSV, JSON and SQL files (EXPORT_DIR, storage/app/exports by default)
-	@$(ARTISAN) dataset:export --path=/var/www/html/$(EXPORT_DIR)
+export: ## Export the dataset and its history to CSV, JSON and SQL files, and the package files (EXPORT_DIR, storage/app/exports by default)
+	@$(ARTISAN) dataset:export --path=/var/www/html/$(EXPORT_DIR) --package
 	@mkdir -p $(EXPORT_DIR)/sql
 	@$(COMPOSE) exec -T -e MYSQL_PWD=root mysql mysqldump -uroot --no-tablespaces --skip-comments --skip-lock-tables frenchpostalcode regions departments communes cities commune_successions reference_changes > $(EXPORT_DIR)/sql/dataset.sql
 	@echo "SQL dump written to $(EXPORT_DIR)/sql/dataset.sql"
@@ -104,13 +104,15 @@ build-dataset-force: ## Same as build-dataset, importing every file again even i
 RELEASE_DIR = $(EXPORT_DIR)/release
 
 .PHONY: release-files
-release-files: ## Zip the exports and write the checksums to attach to a release (VERSION=4.0.0)
+release-files: ## Zip the exports and the package files, and write the checksums to attach to a release (VERSION=4.0.0)
 	@test -n "$(VERSION)" || { echo "VERSION is required, for example: make release-files VERSION=4.0.0"; exit 1; }
 	@test -f $(EXPORT_DIR)/statistics.json || { echo "No export found in $(EXPORT_DIR): run make build-dataset first"; exit 1; }
+	@test -f $(EXPORT_DIR)/package/manifest.json || { echo "No package export found in $(EXPORT_DIR)/package: run make export"; exit 1; }
 	@rm -rf $(RELEASE_DIR) && mkdir -p $(RELEASE_DIR)
 	@zip -qj $(RELEASE_DIR)/french-postal-code-$(VERSION)-csv.zip $(EXPORT_DIR)/csv/*.csv
 	@zip -qj $(RELEASE_DIR)/french-postal-code-$(VERSION)-json.zip $(EXPORT_DIR)/json/*.json
 	@zip -qj $(RELEASE_DIR)/french-postal-code-$(VERSION)-sql.zip $(EXPORT_DIR)/sql/dataset.sql
+	@zip -qj $(RELEASE_DIR)/french-postal-code-$(VERSION)-package.zip $(EXPORT_DIR)/package/*
 	@cp $(EXPORT_DIR)/statistics.json $(RELEASE_DIR)/statistics.json
 	@cd $(RELEASE_DIR) && sha256sum french-postal-code-$(VERSION)-*.zip statistics.json > SHA256SUMS
 	@echo "Files to attach to the release, in $(RELEASE_DIR):"

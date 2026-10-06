@@ -1,30 +1,31 @@
 #!/usr/bin/env bash
-# Prepare commit message hook - Auto-prefix ticket number from branch
-# Published by: zairakai/laravel-dev-tools
-#
-# Automatically extracts ticket number from branch name and prefixes commit message
+# Prepare commit message hook - adds the ticket of the branch to the message
+# Copied from stanislas-poisson/php-dev-tools 1.0.0, which fixed: the ticket goes after "type(scope): ",
+# which is the form that the hook commit-msg asks for.
 #
 # Branch naming convention:
-#   feature/#123-description  → Adds "#123" prefix
-#   fix/#456-bug-description  → Adds "#456" prefix
-#   hotfix/#789-critical      → Adds "#789" prefix
+#   feature/#123-description  → "feat(scope): subject" becomes "feat(scope): #123 subject"
+#   fix/#456-bug-description  → the same with #456
+#   hotfix/#789-critical      → the same with #789
+#
+# Nothing is changed for a merge, a squash or an amend, when the message already has the ticket,
+# or when its first line is not "type(scope): subject".
 
 commit_msg_file="$1"
 commit_source="$2"
 
-# Skip if this is a merge, squash, or amend commit
-[ -n "$commit_source" ] && exit 0
+case "$commit_source" in
+    merge | squash | commit) exit 0 ;;
+esac
 
-# Get current branch name
 branch=$(git symbolic-ref --short HEAD 2>/dev/null)
 
-# Extract ticket number from branch name pattern: type/#NUMBER-description
+# Extract the ticket from a branch named type/#NUMBER-description
 if [[ $branch =~ (feature|fix|hotfix)/#([0-9]+) ]]; then
     ticket="#${BASH_REMATCH[2]}"
 
-    # Add ticket prefix if not already present in commit message
-    if ! grep -q "$ticket" "$commit_msg_file"; then
-        sed -i.bak "1s/^/$ticket /" "$commit_msg_file"
+    if ! grep -qE "${ticket}([^0-9]|$)" "$commit_msg_file"; then
+        sed -i.bak -E "1s/^([a-z]+(\([^)]*\))?: )/\1${ticket} /" "$commit_msg_file"
         rm -f "$commit_msg_file.bak"
     fi
 fi

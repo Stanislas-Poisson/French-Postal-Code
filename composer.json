@@ -1,6 +1,6 @@
 {
     "$schema": "https://getcomposer.org/schema.json",
-    "name": "stanislas-poisson/french-postal-code",
+    "name": "stanislas-poisson/french-postal-code-builder",
     "type": "project",
     "description": "Dataset of the regions, departments, communes and postal codes of France, with one GPS point per postal code and the history of changes.",
     "keywords": [

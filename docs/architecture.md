@@ -272,6 +272,14 @@ Recommendation:
 2. **Later**, a **Composer package** extracts the models, migrations and import for Laravel applications. It is the one that answers the need for addresses with a foreign key. It will be decided after the first real import, once the model is stabilised.
 3. **npm: not for now.** To be considered only if a need for browser-side autocompletion appears.
 
+### D15 – Distribution as a Composer package
+
+D14 planned a Composer package for the applications that want the data in their own database. It is a separate project, `stanislas-poisson/french-postal-code` (repository `French-Postal-Code-Package`): the data, the models and relations for Laravel (Eloquent) and Symfony (Doctrine), and a command that loads the data. It does not resolve old codes, which stays here.
+
+This repository only produces its data: `dataset:export --package` writes, to `<path>/package`, the columns of the tables with the **identifiers of the relations** (`region_id`, `department_id`, `commune_id`, `replaced_by_city_id`) and a `manifest.json` (versions of the sources, rows and columns of each file). The package inserts the rows with these identifiers, so that the foreign keys of an application stay valid from one version to the next. `make release-files` adds them to the release as `french-postal-code-x.y.z-package.zip`.
+
+The composer name of this project is `stanislas-poisson/french-postal-code-builder`: it is never published, and the short name belongs to the package.
+
 ## 4. Risks and limits
 
 - **Partial postal code history**: it starts at the first snapshot (D6).
