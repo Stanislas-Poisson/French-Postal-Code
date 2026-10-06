@@ -42,6 +42,15 @@ The dataset files are produced by `make export` and attached to the GitHub relea
 
 6. Publish the same files on data.gouv.fr.
 
+## Knowing when to build
+
+The workflow `Watch sources` runs every day (and from the Actions tab). It compares the sources with the date of the last generation, read in `statistics.json` of the latest release, without downloading them:
+
+- INSEE COG: a newer vintage, or a file of the latest vintage that changed after the generation (read on the dataset of data.gouv.fr, because INSEE sends no `Last-Modified`);
+- La Poste: the `Last-Modified` header of the file of postal codes.
+
+When a source is newer it opens the issue "A source of the dataset changed: build a new version" (label `data-update`) and updates it every day until a release is made. When nothing changed it does nothing. The build itself is still started by a maintainer, because the update works on the database that holds the history and the identifiers of the dataset: an empty database would give new identifiers.
+
 ## Versioning
 
 The version number follows SemVer. A change to the schema of the files, for example removing a column, is a major change.
