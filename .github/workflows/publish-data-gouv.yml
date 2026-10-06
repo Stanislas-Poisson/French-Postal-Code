@@ -1,0 +1,42 @@
+name: Publish on data.gouv.fr
+
+# When a release is published, update the resources of the dataset on data.gouv.fr (see docs/data-gouv.md).
+# It only prints the changes (dry run) until the repository variable DATAGOUV_AUTO_PUBLISH is `true`.
+# Started by hand, `apply` decides.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The tag of the release to publish (4.0.0)'
+        required: true
+      apply:
+        description: 'Change the dataset on data.gouv.fr (otherwise only print the changes)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-data-gouv
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DATAGOUV_API_KEY: ${{ secrets.DATAGOUV_API_KEY }}
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+          APPLY: ${{ github.event_name == 'workflow_dispatch' && inputs.apply || (github.event_name == 'release' && vars.DATAGOUV_AUTO_PUBLISH == 'true') }}
+        run: |
+          if [ "${APPLY}" = "true" ]; then
+            python3 .github/scripts/publish_data_gouv.py "${TAG}" --apply
+          else
+            python3 .github/scripts/publish_data_gouv.py "${TAG}"
+          fi
