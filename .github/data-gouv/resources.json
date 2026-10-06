@@ -1,0 +1,102 @@
+{
+  "dataset": "5a2d54f288ee382771f2cf4f",
+  "numbers": "Thousands are separated by a space. {regions}, {departments}, {communes}, {cities} and {successions} come from statistics.json, the {..._rows} from the CSV files.",
+  "resources": [
+    {
+      "key": "cities.csv",
+      "match": "^Villes : une ligne par commune et code postal",
+      "kind": "file",
+      "source": "cities.csv",
+      "title": "Villes : une ligne par commune et code postal (CSV)",
+      "format": "csv",
+      "mime": "text/csv",
+      "type": "main",
+      "schema": "https://raw.githubusercontent.com/Stanislas-Poisson/French-Postal-Code/schemas/cities.schema.json",
+      "description": "La table principale :\n- une ligne par commune et par code postal ({cities_rows} lignes)\n- avec le point GPS de ce code postal dans cette commune\n- la source du point _(BAN, Nominatim ou centre de la commune)_\n- le nombre d'adresses utilisées\n- la période de validité\n- l'identifiant stable à référencer par clé étrangère\n"
+    },
+    {
+      "key": "communes.csv",
+      "match": "^Communes et arrondissements",
+      "kind": "file",
+      "source": "communes.csv",
+      "title": "Communes et arrondissements (CSV)",
+      "format": "csv",
+      "mime": "text/csv",
+      "type": "main",
+      "schema": "https://raw.githubusercontent.com/Stanislas-Poisson/French-Postal-Code/schemas/communes.schema.json",
+      "description": "Les communes et arrondissements municipaux _({communes_rows} lignes, dont les communes fermées depuis 1943)_, avec :\n- leur code INSEE\n- leur département\n- leur région\n- le centre de la commune\n- leur période de validité\n\nUne ligne n'est jamais supprimée : `valid_to` indique la fin de validité.\n"
+    },
+    {
+      "key": "commune_successions.csv",
+      "match": "^Successions de codes de commune",
+      "kind": "file",
+      "source": "commune_successions.csv",
+      "title": "Successions de codes de commune (CSV)",
+      "format": "csv",
+      "mime": "text/csv",
+      "type": "main",
+      "schema": "https://raw.githubusercontent.com/Stanislas-Poisson/French-Postal-Code/schemas/commune_successions.schema.json",
+      "description": "Pour chaque ancien code INSEE de commune :\n- le ou les codes qui lui succèdent _({successions_rows} lignes)_\n- la nature du changement _(absorbée, code repris, remplacée, scindée, renommée, supprimée)_\n- sa date d'effet\n\nC'est le fichier à utiliser pour migrer d'anciens codes vers les codes actuels."
+    },
+    {
+      "key": "csv.zip",
+      "match": "^CSV \\(zip\\)",
+      "kind": "remote",
+      "asset": "french-postal-code-{version}-csv.zip",
+      "title": "CSV (zip) - French-postal-code {version}",
+      "format": "zip",
+      "mime": "application/zip",
+      "type": "main",
+      "checksum": "sha256",
+      "description": "Les 6 tables du jeu de données au format CSV (UTF-8, séparateur virgule, dates ISO 8601), un fichier par table :\n- `regions`\n- `departments`\n- `communes`\n- `cities`\n- `commune_successions`\n- `reference_changes`\n\nLa table `cities` contient une ligne par commune et par code postal, avec son point GPS, la source de ce point (BAN, Nominatim ou centre de la commune) et sa période de validité."
+    },
+    {
+      "key": "json.zip",
+      "match": "^JSON \\(zip\\)",
+      "kind": "remote",
+      "asset": "french-postal-code-{version}-json.zip",
+      "title": "JSON (zip) - French-postal-code {version}",
+      "format": "zip",
+      "mime": "application/zip",
+      "type": "main",
+      "checksum": "sha256",
+      "description": "Les mêmes 6 tables au format JSON (UTF-8, dates ISO 8601), un fichier par table :\n- `regions`\n- `departments`\n- `communes`\n- `cities`\n- `commune_successions`\n- `reference_changes`\n\nChaque fichier est un tableau d'objets dont les champs sont les colonnes des CSV ; une valeur absente vaut `null`, par exemple `valid_to` pour une ligne encore valide."
+    },
+    {
+      "key": "sql.zip",
+      "match": "^SQL \\(zip\\)",
+      "kind": "remote",
+      "asset": "french-postal-code-{version}-sql.zip",
+      "title": "SQL (zip) - French-postal-code {version}",
+      "format": "zip",
+      "mime": "application/zip",
+      "type": "main",
+      "checksum": "sha256",
+      "description": "Dump MySQL des 6 tables du jeu de données avec leur structure, leurs index, leurs clés étrangères et leurs données :\n- `regions`\n- `departments`\n- `communes`\n- `cities`\n- `commune_successions`\n- `reference_changes`\n\nÀ importer avec le client mysql dans une base vide; les relations y passent par des identifiants (`region_id`, `commune_id`), là où les CSV et JSON utilisent les codes."
+    },
+    {
+      "key": "statistics.json",
+      "match": "^Statistiques du jeu de données",
+      "kind": "remote",
+      "asset": "statistics.json",
+      "title": "Statistiques du jeu de données (statistics.json)",
+      "format": "json",
+      "mime": "application/json",
+      "type": "main",
+      "checksum": "sha256",
+      "description": "Chiffres clés de la version {version} du jeu de données :\n- nombre de régions ({regions})\n- de départements et collectivités ({departments})\n- de communes ({communes})\n- de villes ({cities})\n- de successions de codes ({successions})\n- répartition des sources des points GPS _(BAN, Nominatim, centre de la commune)_\n- versions des sources _INSEE COG_ et _La Poste_\n"
+    },
+    {
+      "key": "SHA256SUMS",
+      "match": "^Sommes de contrôle",
+      "kind": "remote",
+      "asset": "SHA256SUMS",
+      "title": "Sommes de contrôle (SHA256SUMS)",
+      "format": "txt",
+      "mime": "text/plain",
+      "type": "documentation",
+      "checksum": null,
+      "description": "Sommes de contrôle SHA-256 des trois archives (CSV, JSON, SQL) et du fichier statistics.json de la version {version}.\n\nElles permettent de vérifier l'intégrité des fichiers téléchargés :\n1. placez ce fichier à côté des téléchargements\n2. lancez la commande `sha256sum -c SHA256SUMS`, qui doit afficher OK pour chaque fichier."
+    }
+  ]
+}
