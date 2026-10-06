@@ -34,6 +34,10 @@ DATAGOUV_API_KEY=... GH_TOKEN=$(gh auth token) python3 .github/scripts/publish_d
 
 The script checks the archives against `SHA256SUMS` before anything is changed, then, for each resource: sends the CSV files again, sets the link, the title, the checksum and the description, and ends the temporal coverage of the dataset on the date of the generation.
 
+## How it was tried
+
+The upload and the update calls were run, with `--apply`, on a private copy of the dataset (set with `DATAGOUV_DATASET`, deleted afterwards): the three CSV files were replaced (same SHA-1 as the files of the archive), the five links got their checksum, the schemas were set and the temporal coverage was changed without touching the other fields of the dataset. The public dataset was only read.
+
 ## What stays manual
 
 The description of the dataset itself holds a few figures and years that are not generated: the share of the points that come from the BAN, the year of the COG and the start of the tracking of the postal codes. Read it after each new vintage of the sources. The discussions of the dataset are answered on the site.
