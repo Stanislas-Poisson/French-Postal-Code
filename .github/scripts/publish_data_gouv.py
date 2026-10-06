@@ -18,6 +18,7 @@ Environment:
     DATAGOUV_API_KEY  API key of the account that owns the dataset (required with --apply)
     GH_REPO           owner/name of the repository (default: GITHUB_REPOSITORY)
     GH_TOKEN          GitHub token that can read the releases
+    DATAGOUV_DATASET  identifier of another dataset, to try the publication on a private copy
 """
 
 from __future__ import annotations
@@ -137,7 +138,7 @@ def apply(dataset: str, steps: list[dict], generated_at: str) -> None:
             print(f"  uploaded {name}")
         call(f"{base}/", method="PUT", body=json.dumps(step["fields"]).encode(), headers={"Content-Type": "application/json"}, key=True)
         print(f"  updated {step['key']}")
-    current = json.loads(call(f"{API}/datasets/{dataset}/"))
+    current = json.loads(call(f"{API}/datasets/{dataset}/", key=True))
     coverage = {**current["temporal_coverage"], "end": generated_at}
     call(f"{API}/datasets/{dataset}/", method="PUT", body=json.dumps({"temporal_coverage": coverage}).encode(), headers={"Content-Type": "application/json"}, key=True)
     print(f"  temporal coverage ends on {generated_at}")
@@ -152,8 +153,8 @@ def main() -> int:
     if do_apply and not os.environ.get("DATAGOUV_API_KEY"):
         raise SystemExit("DATAGOUV_API_KEY is required with --apply.")
 
-    dataset = json.loads(SPECS.read_text())["dataset"]
-    resources = json.loads(call(f"{API}/datasets/{dataset}/"))["resources"]
+    dataset = os.environ.get("DATAGOUV_DATASET") or json.loads(SPECS.read_text())["dataset"]
+    resources = json.loads(call(f"{API}/datasets/{dataset}/", key=bool(os.environ.get("DATAGOUV_API_KEY"))))["resources"]
     data = collect(tag)
     steps = plan(tag, data, resources)
 
