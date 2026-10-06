@@ -1,0 +1,52 @@
+name: Watch sources
+
+# Every day, compare the sources (INSEE COG, La Poste) with the date of the last generation of the dataset.
+# When one is newer, open an issue that says so: the build of the dataset is still started by a maintainer.
+on:
+  schedule:
+    - cron: '30 5 * * *'
+  workflow_dispatch:
+    inputs:
+      since:
+        description: 'A date (YYYY-MM-DD) to use instead of the last generation, to try the check'
+        required: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compare the sources with the last generation
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SINCE: ${{ inputs.since }}
+        run: python3 .github/scripts/check_sources.py
+
+      - name: Open or update the issue
+        if: steps.check.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REASONS: ${{ steps.check.outputs.reasons }}
+          LAST: ${{ steps.check.outputs.last_generated }}
+        run: |
+          gh label create data-update --description "A source of the dataset changed" --color 0e8a16 --force
+          {
+            echo "A source of the dataset is newer than the last generation (${LAST}):"
+            echo
+            echo "${REASONS}"
+            echo
+            echo "To build a new version: \`make build-dataset\`, check \`make status\`, then follow [docs/release.md](docs/release.md)."
+            echo "This issue is updated every day until a release is made, and can then be closed."
+          } > body.md
+          number=$(gh issue list --label data-update --state open --json number --jq '.[0].number // empty')
+          if [ -n "${number}" ]; then
+            gh issue edit "${number}" --body-file body.md
+          else
+            gh issue create --title "A source of the dataset changed: build a new version" --body-file body.md --label data-update --assignee Stanislas-Poisson
+          fi
