@@ -40,7 +40,7 @@ The dataset files are produced by `make export` and attached to the GitHub relea
 
    Add `--draft` to check the page before publishing it. The generated notes come from the titles of the merged pull requests, which is why their format matters.
 
-6. Publish the same files on data.gouv.fr.
+6. Publish the same files on data.gouv.fr. The workflow `Publish on data.gouv.fr` does it when the release is published, see [docs/data-gouv.md](data-gouv.md) for what is sent where.
 
 ## Knowing when to build
 
