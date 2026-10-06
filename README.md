@@ -209,5 +209,5 @@ Made by Stanislas Poisson _(Zairakai)_
 [badge-twitch]: https://img.shields.io/badge/Twitch-9146ff?style=flat-square&logo=twitch&logoColor=white
 [badge-linktree]: https://img.shields.io/badge/Linktree-43e55e?style=flat-square&logo=linktree&logoColor=white
 [badge-support]: https://img.shields.io/badge/Support_the_stream-ff5a5f?style=flat-square&logo=githubsponsors&logoColor=white
-[img-stats]: https://raw.githubusercontent.com/Stanislas-Poisson/French-Postal-Code/stats/stats.svg
-[img-dataset]: https://raw.githubusercontent.com/Stanislas-Poisson/French-Postal-Code/stats/dataset.svg
+[img-stats]: https://raw.githubusercontent.com/Stanislas-Poisson/Stanislas-Poisson/main/assets/projects/french-postal-code-usage.svg
+[img-dataset]: https://raw.githubusercontent.com/Stanislas-Poisson/Stanislas-Poisson/main/assets/projects/french-postal-code-dataset.svg
