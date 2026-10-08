@@ -2,7 +2,23 @@
 
 The dataset files are produced by `make export` and attached to the GitHub release. They are not committed to the repository.
 
-## Steps
+A release is built by the workflow `Build dataset`, or by hand with the steps below. The workflow proposes a draft release: the maintainer reviews it and publishes it.
+
+## Automatic build
+
+The workflow `Build dataset` (Actions tab, or started by `Watch sources` when a source is newer) does the steps 1, 2, 4 and 5 below in the CI (the tag of the step 3 is created when the draft is published):
+
+1. It restores the SQL of the latest release in a fresh database, after checking the `SHA256SUMS`. The identifiers of the dataset come from that SQL.
+2. It stops if the schema of the restored tables is not the one of the migrations. After a migration that changes these tables, build the baseline by hand once.
+3. It runs the update, then stops if an identifier of the restored data changed or disappeared, or if the update is incomplete.
+4. It exports, writes the release files (the version defaults to the next minor one, `version` overrides it) and keeps them as an artifact for 14 days.
+5. It creates a **draft** release with the files, the notes and the status of the dataset, and comments the issue "A source of the dataset changed".
+
+Started by hand, `dry_run` is on by default: the build and the checks run, but no draft is created. Check the draft, then publish it: that creates the tag on `main`, starts `Publish on data.gouv.fr`, which then starts the update of French-Postal-Code-Package.
+
+The secret `PACKAGE_DISPATCH_TOKEN` (a token with the right Actions: write on French-Postal-Code-Package) lets the publication start that update at once. Without it, the package finds the release on its weekly run.
+
+## Steps by hand
 
 1. Update the dataset and export the files in one go.
 
@@ -49,7 +65,7 @@ The workflow `Watch sources` runs every day (and from the Actions tab). It compa
 - INSEE COG: a newer vintage, or a file of the latest vintage that changed after the generation (read on the dataset of data.gouv.fr, because INSEE sends no `Last-Modified`);
 - La Poste: the `Last-Modified` header of the file of postal codes.
 
-When a source is newer it opens the issue "A source of the dataset changed: build a new version" (label `data-update`) and updates it every day until a release is made. When nothing changed it does nothing. The build itself is still started by a maintainer, because the update works on the database that holds the history and the identifiers of the dataset: an empty database would give new identifiers.
+When a source is newer it opens the issue "A source of the dataset changed: build a new version" (label `data-update`), updates it every day until a release is made, and starts the workflow `Build dataset` unless a draft release is waiting or a build is running. When nothing changed it does nothing. The update works on the database that holds the history and the identifiers of the dataset, which is why the build restores the SQL of the latest release first: an empty database would give new identifiers.
 
 ## Versioning
 
