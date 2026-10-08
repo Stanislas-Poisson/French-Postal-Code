@@ -69,6 +69,13 @@ jobs:
           # The files belong to the runner: the container has to write the key, the logs and the exports.
           chmod -R a+rwX storage bootstrap/cache .env
           ${COMPOSE} up -d mysql redis php
+          # The healthcheck answers on the socket of the temporary server of the first start: wait for a real connection.
+          for _ in $(seq 1 60); do
+            if ${COMPOSE} exec -T php php -r 'new PDO("mysql:host=mysql;dbname=frenchpostalcode", "frenchpostalcode", "frenchpostalcode");' 2>/dev/null; then
+              break
+            fi
+            sleep 2
+          done
           ${COMPOSE} exec -T php php artisan key:generate
           ${COMPOSE} exec -T php php artisan migrate --force
 
