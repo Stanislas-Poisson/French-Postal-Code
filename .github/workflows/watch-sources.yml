@@ -1,7 +1,8 @@
 name: Watch sources
 
 # Every day, compare the sources (INSEE COG, La Poste) with the date of the last generation of the dataset.
-# When one is newer, open an issue that says so: the build of the dataset is still started by a maintainer.
+# When one is newer, open an issue that says so and start the workflow `Build dataset`, which proposes the new
+# version as a draft release: the maintainer only reviews and publishes it.
 on:
   schedule:
     - cron: '30 5 * * *'
@@ -14,6 +15,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: write
 
 jobs:
   watch:
@@ -41,7 +43,8 @@ jobs:
             echo
             echo "${REASONS}"
             echo
-            echo "To build a new version: \`make build-dataset\`, check \`make status\`, then follow [docs/release.md](docs/release.md)."
+            echo "The workflow \`Build dataset\` builds the new version and proposes it as a draft release: review it and publish it (see [docs/release.md](docs/release.md))."
+            echo "To build by hand instead: \`make build-dataset\`, check \`make status\`, then follow the same document."
             echo "This issue is updated every day until a release is made, and can then be closed."
           } > body.md
           number=$(gh issue list --label data-update --state open --json number --jq '.[0].number // empty')
@@ -50,3 +53,17 @@ jobs:
           else
             gh issue create --title "A source of the dataset changed: build a new version" --body-file body.md --label data-update --assignee Stanislas-Poisson
           fi
+
+      - name: Start the build
+        if: steps.check.outputs.changed == 'true' && inputs.since == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # One build at a time, and none while a draft release waits for the maintainer.
+          drafts=$(gh release list --limit 50 --json isDraft --jq 'map(select(.isDraft)) | length')
+          running=$(gh run list --workflow build-dataset.yml --json status --jq 'map(select(.status != "completed")) | length')
+          if [ "${drafts}" != "0" ] || [ "${running}" != "0" ]; then
+            echo "A draft release exists or a build is running: no new build."
+            exit 0
+          fi
+          gh workflow run build-dataset.yml -f dry_run=false
