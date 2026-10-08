@@ -6,8 +6,12 @@ name: Build dataset
 # SQL of the latest release, restored in a fresh database. It stops if the schema of the restored tables is not
 # the one of the migrations, if an identifier changed or disappeared, or if the update is incomplete.
 #
+# The draft is created only when the export differs from the latest release, in any column: a newer source file
+# does not mean that the data changed. Otherwise the issue gets a comment and a marker, so that `Watch sources`
+# does not start the build again for the same sources.
+#
 # The maintainer reviews the draft and publishes it: that creates the tag and starts `Publish on data.gouv.fr`.
-# Started by `Watch sources` when a source is newer, or by hand. A try without `dry_run` off creates no draft.
+# Started by `Watch sources` when a source is newer, or by hand. With `dry_run` on, no draft and no comment.
 on:
   workflow_dispatch:
     inputs:
@@ -18,6 +22,9 @@ on:
         description: 'Build and check, but create no draft release'
         type: boolean
         default: true
+      fingerprint:
+        description: 'Set by Watch sources: identifies the sources that started the build'
+        required: false
 
 permissions:
   contents: write
@@ -124,6 +131,22 @@ jobs:
           make release-files VERSION="${VERSION}"
           ${COMPOSE} exec -T php php artisan dataset:status --no-ansi | tee status.txt
 
+      - name: Compare with the latest release
+        id: compare
+        env:
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
+          gh release download "${LATEST}" --dir restore --pattern 'french-postal-code-*-csv.zip'
+          (cd restore && sha256sum --check --ignore-missing SHA256SUMS)
+          mkdir restore/csv
+          unzip -q restore/french-postal-code-*-csv.zip -d restore/csv
+          python3 .github/scripts/compare_exports.py restore/csv storage/app/exports/csv compare.md
+          {
+            echo "### Changes since ${LATEST}"
+            echo
+            cat compare.md
+          } >> "${GITHUB_STEP_SUMMARY}"
+
       - uses: actions/upload-artifact@v4
         with:
           name: release-files
@@ -131,15 +154,20 @@ jobs:
           retention-days: 14
 
       - name: Create the draft release
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.compare.outputs.changed == 'true' }}
         env:
           VERSION: ${{ steps.version.outputs.version }}
+          LATEST: ${{ steps.version.outputs.latest }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           {
             echo "Built by the workflow Build dataset (${RUN_URL}) from the SQL of the latest release."
             echo
             echo "Check the files, then publish this draft: that creates the tag ${VERSION} on main and starts the publication on data.gouv.fr."
+            echo
+            echo "## Changes since ${LATEST}"
+            echo
+            cat compare.md
             echo
             echo '```'
             cat status.txt
@@ -152,3 +180,23 @@ jobs:
           if [ -n "${number}" ]; then
             gh issue comment "${number}" --body "A draft release ${VERSION} is ready: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases. Check it and publish it."
           fi
+
+      - name: Report that the data did not change
+        if: ${{ !inputs.dry_run && steps.compare.outputs.changed == 'false' }}
+        env:
+          FINGERPRINT: ${{ inputs.fingerprint }}
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
+          number=$(gh issue list --label data-update --state open --json number --jq '.[0].number // empty')
+          if [ -z "${number}" ]; then
+            exit 0
+          fi
+          {
+            echo "The build ran on the new sources: the data are identical to ${LATEST}, in every column, so there is no draft."
+            echo "The sources are not built again until they change. Close this issue if you do not expect a release."
+            if [ -n "${FINGERPRINT}" ]; then
+              echo
+              echo "<!-- build-checked:${FINGERPRINT} -->"
+            fi
+          } > comment.md
+          gh issue comment "${number}" --body-file comment.md
