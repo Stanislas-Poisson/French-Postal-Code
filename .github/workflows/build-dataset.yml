@@ -117,6 +117,9 @@ jobs:
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
+          # The container writes the exports and the runner writes the SQL dump and the zips: share the directory.
+          mkdir -p storage/app/exports/sql
+          chmod -R a+rwX storage/app/exports
           make export
           make release-files VERSION="${VERSION}"
           ${COMPOSE} exec -T php php artisan dataset:status --no-ansi | tee status.txt
