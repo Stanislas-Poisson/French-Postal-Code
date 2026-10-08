@@ -18,20 +18,76 @@ final class BuildSuccessions
      * Derives, from the events, the succession of the commune codes (and arrondissement codes).
      * Only the events between two communes are used: delegated and associated communes do not own a code of their own.
      *
+     * The identifiers are kept: a succession that already exists with the same codes, kind and date keeps its
+     * identifier, because the package loads the files by identifier and would otherwise duplicate the successions.
+     *
      * @return int number of successions written
      */
     public function execute(): int
     {
-        CommuneSuccession::query()->delete();
-
-        $count = 0;
+        $available = $this->existingIds();
+        $count     = 0;
 
         foreach ($this->rows()->chunk(self::CHUNK_SIZE) as $chunk) {
-            CommuneSuccession::query()->insert($chunk->values()->all());
+            $kept = [];
+            $new  = [];
+
+            foreach ($chunk as $row) {
+                $key = $this->keyOf($row);
+
+                if (isset($available[$key]) && [] !== $available[$key]) {
+                    $row['id'] = array_shift($available[$key]);
+                    $kept[]    = $row;
+                }
+                else {
+                    $new[] = $row;
+                }
+            }
+
+            if ([] !== $kept) {
+                CommuneSuccession::query()->upsert($kept, ['id'], ['commune_event_id', 'from_code', 'to_code', 'kind', 'effective_date']);
+            }
+
+            if ([] !== $new) {
+                CommuneSuccession::query()->insert($new);
+            }
+
             $count += $chunk->count();
         }
 
+        // What the events no longer give is removed.
+        foreach (array_chunk(array_merge(...array_values($available)), self::CHUNK_SIZE) as $ids) {
+            CommuneSuccession::query()->whereIn('id', $ids)->delete();
+        }
+
         return $count;
+    }
+
+    /**
+     * @return array<string, list<int>> the identifiers of the existing successions, by codes, kind and date
+     */
+    private function existingIds(): array
+    {
+        $ids = [];
+
+        foreach (CommuneSuccession::query()->orderBy('id')->get() as $communeSuccession) {
+            $ids[$this->keyOf([
+                'from_code'      => $communeSuccession->from_code,
+                'to_code'        => $communeSuccession->to_code,
+                'kind'           => $communeSuccession->kind->value,
+                'effective_date' => $communeSuccession->effective_date->toDateString(),
+            ])][] = $communeSuccession->id;
+        }
+
+        return $ids;
+    }
+
+    /**
+     * @param array{from_code: string, to_code: string|null, kind: string, effective_date: string} $row
+     */
+    private function keyOf(array $row): string
+    {
+        return implode('|', [$row['from_code'], $row['to_code'] ?? '', $row['kind'], $row['effective_date']]);
     }
 
     private function kindOf(CommuneEvent $communeEvent): ?SuccessionKind
@@ -71,7 +127,7 @@ final class BuildSuccessions
     }
 
     /**
-     * @return LazyCollection<int, non-empty-array<string, mixed>>
+     * @return LazyCollection<int, array{commune_event_id: int, from_code: string, to_code: string|null, kind: string, effective_date: string}>
      */
     private function rows(): LazyCollection
     {
@@ -83,7 +139,7 @@ final class BuildSuccessions
     }
 
     /**
-     * @return non-empty-array<string, mixed>|null
+     * @return array{commune_event_id: int, from_code: string, to_code: string|null, kind: string, effective_date: string}|null
      */
     private function toRow(CommuneEvent $communeEvent): ?array
     {

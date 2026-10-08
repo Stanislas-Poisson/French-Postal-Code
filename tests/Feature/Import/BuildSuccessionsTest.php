@@ -91,6 +91,29 @@ final class BuildSuccessionsTest extends TestCase
     }
 
     #[Test]
+    public function it_keeps_the_identifiers_when_the_events_are_replaced(): void
+    {
+        CogFixtures::import($this->app);
+        $before = $this->successions();
+        $this->assertNotSame([], $before);
+
+        // What the next import does: the events are replaced by new ones, the successions are built again.
+        CommuneSuccession::query()->update(['commune_event_id' => null]);
+        $events = CommuneEvent::query()->get()->map(fn (CommuneEvent $communeEvent): array => $communeEvent->only([
+            'snapshot_id', 'modality', 'effective_date', 'kind_before', 'code_before', 'name_before', 'kind_after', 'code_after', 'name_after',
+        ]))->all();
+        CommuneEvent::query()->delete();
+
+        foreach ($events as $event) {
+            CommuneEvent::query()->create($event);
+        }
+
+        $this->app->make(BuildSuccessions::class)->execute();
+
+        $this->assertSame($before, $this->successions());
+    }
+
+    #[Test]
     public function it_rebuilds_the_successions_without_duplicates(): void
     {
         CogFixtures::import($this->app);
@@ -99,5 +122,36 @@ final class BuildSuccessionsTest extends TestCase
         $this->app->make(BuildSuccessions::class)->execute();
 
         $this->assertSame($count, CommuneSuccession::query()->count());
+    }
+
+    #[Test]
+    public function it_removes_the_successions_that_the_events_no_longer_give(): void
+    {
+        CogFixtures::import($this->app);
+        $count = CommuneSuccession::query()->count();
+        $this->assertGreaterThan(1, $count);
+
+        CommuneSuccession::query()->update(['commune_event_id' => null]);
+        CommuneEvent::query()->limit(1)->delete();
+        $remaining = CommuneEvent::query()->count();
+
+        $this->app->make(BuildSuccessions::class)->execute();
+
+        $this->assertLessThan($count, CommuneSuccession::query()->count());
+        $this->assertSame($remaining, CommuneEvent::query()->count());
+    }
+
+    /**
+     * @return array<int, array{int, string, string|null, string, string}>
+     */
+    private function successions(): array
+    {
+        return CommuneSuccession::query()->orderBy('id')->get()->map(fn (CommuneSuccession $communeSuccession): array => [
+            $communeSuccession->id,
+            $communeSuccession->from_code,
+            $communeSuccession->to_code,
+            $communeSuccession->kind->value,
+            $communeSuccession->effective_date->toDateString(),
+        ])->values()->all();
     }
 }

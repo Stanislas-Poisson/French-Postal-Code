@@ -6,6 +6,7 @@ namespace App\Actions;
 
 use App\Data\Insee\CommuneMovementRecord;
 use App\Models\CommuneEvent;
+use App\Models\CommuneSuccession;
 use App\Models\Snapshot;
 
 final class ImportMovements
@@ -21,6 +22,8 @@ final class ImportMovements
      */
     public function execute(iterable $movements, Snapshot $snapshot): int
     {
+        // The successions keep their identifiers between two updates: detach them, so that deleting the events does not cascade to them.
+        CommuneSuccession::query()->update(['commune_event_id' => null]);
         CommuneEvent::query()->delete();
 
         $count = 0;
