@@ -1,0 +1,143 @@
+name: Build dataset
+
+# Builds a new version of the dataset and proposes it as a draft release (see docs/release.md).
+#
+# The database of the update holds the history and the identifiers of the dataset, so the build starts from the
+# SQL of the latest release, restored in a fresh database. It stops if the schema of the restored tables is not
+# the one of the migrations, if an identifier changed or disappeared, or if the update is incomplete.
+#
+# The maintainer reviews the draft and publishes it: that creates the tag and starts `Publish on data.gouv.fr`.
+# Started by `Watch sources` when a source is newer, or by hand. A try without `dry_run` off creates no draft.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'The version of the release (default: the next minor version, 4.0.0 gives 4.1.0)'
+        required: false
+      dry_run:
+        description: 'Build and check, but create no draft release'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: build-dataset
+  cancel-in-progress: false
+
+env:
+  GH_TOKEN: ${{ github.token }}
+  COMPOSE: docker compose -p frenchpostalcode
+
+jobs:
+  build:
+    name: Build the dataset
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+
+      # The Makefile includes files of the Composer packages.
+      - run: composer install --no-interaction --prefer-dist
+
+      - name: Choose the version
+        id: version
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          latest=$(gh release view --json tagName --jq .tagName)
+          IFS=. read -r major minor _ <<< "${latest}"
+          version="${INPUT_VERSION:-${major}.$((minor + 1)).0}"
+          if gh release list --limit 200 --json tagName --jq '.[].tagName' | grep -qx "${version}"; then
+            echo "::error::The release ${version} already exists, published or draft."
+            exit 1
+          fi
+          echo "latest=${latest}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "Latest release ${latest}, building ${version}."
+
+      - name: Start the database
+        run: |
+          cp .env.example .env
+          ${COMPOSE} up -d --wait mysql redis php
+          ${COMPOSE} exec -T php composer install --no-interaction --prefer-dist --optimize-autoloader
+          ${COMPOSE} exec -T php php artisan key:generate
+          ${COMPOSE} exec -T php php artisan migrate --force
+
+      - name: Restore the SQL of the latest release
+        env:
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
+          mkdir restore
+          gh release download "${LATEST}" --dir restore --pattern 'french-postal-code-*-sql.zip' --pattern SHA256SUMS
+          (cd restore && sha256sum --check --ignore-missing SHA256SUMS)
+          unzip -q restore/french-postal-code-*-sql.zip -d restore
+
+          schema_migrations=$(.github/scripts/db-check.sh schema)
+          ${COMPOSE} exec -T -e MYSQL_PWD=root mysql mysql -uroot frenchpostalcode < restore/dataset.sql
+          schema_restored=$(.github/scripts/db-check.sh schema)
+          if [ "${schema_migrations}" != "${schema_restored}" ]; then
+            echo "::error::The schema of the SQL of ${LATEST} is not the one of the migrations. Rebuild the baseline by hand, see docs/release.md."
+            exit 1
+          fi
+
+          .github/scripts/db-check.sh identifiers > identifiers-before.txt
+          echo "Restored $(wc -l < identifiers-before.txt) rows with an identifier."
+
+      - name: Update the dataset
+        run: ${COMPOSE} exec -T php php artisan dataset:update --sync
+
+      - name: Check the identifiers
+        run: |
+          .github/scripts/db-check.sh identifiers > identifiers-after.txt
+          LC_ALL=C comm -23 identifiers-before.txt identifiers-after.txt > identifiers-lost.txt
+          if [ -s identifiers-lost.txt ]; then
+            echo "::error::$(wc -l < identifiers-lost.txt) identifiers changed or disappeared."
+            head -n 20 identifiers-lost.txt
+            exit 1
+          fi
+          echo "No identifier changed: $(wc -l < identifiers-before.txt) before, $(wc -l < identifiers-after.txt) after."
+
+      - name: Export and zip the release files
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          make export
+          make release-files VERSION="${VERSION}"
+          ${COMPOSE} exec -T php php artisan dataset:status --no-ansi | tee status.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: storage/app/exports/release/*
+          retention-days: 14
+
+      - name: Create the draft release
+        if: ${{ !inputs.dry_run }}
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "Built by the workflow Build dataset (${RUN_URL}) from the SQL of the latest release."
+            echo
+            echo "Check the files, then publish this draft: that creates the tag ${VERSION} on main and starts the publication on data.gouv.fr."
+            echo
+            echo '```'
+            cat status.txt
+            echo '```'
+          } > notes.md
+          gh release create "${VERSION}" --draft --target main --title "French-postal-code-${VERSION}" \
+            --notes-file notes.md --generate-notes storage/app/exports/release/*
+
+          number=$(gh issue list --label data-update --state open --json number --jq '.[0].number // empty')
+          if [ -n "${number}" ]; then
+            gh issue comment "${number}" --body "A draft release ${VERSION} is ready: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases. Check it and publish it."
+          fi
