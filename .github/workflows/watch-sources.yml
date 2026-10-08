@@ -2,7 +2,7 @@ name: Watch sources
 
 # Every day, compare the sources (INSEE COG, La Poste) with the date of the last generation of the dataset.
 # When one is newer, open an issue that says so and start the workflow `Build dataset`, which proposes the new
-# version as a draft release: the maintainer only reviews and publishes it.
+# version as a draft release when the data changed: the maintainer only reviews and publishes it.
 on:
   schedule:
     - cron: '30 5 * * *'
@@ -58,7 +58,15 @@ jobs:
         if: steps.check.outputs.changed == 'true' && inputs.since == ''
         env:
           GH_TOKEN: ${{ github.token }}
+          REASONS: ${{ steps.check.outputs.reasons }}
         run: |
+          # The same sources are built once: a build that finds no change leaves a marker in the issue.
+          fingerprint=$(printf '%s' "${REASONS}" | sha256sum | cut -c1-16)
+          number=$(gh issue list --label data-update --state open --json number --jq '.[0].number // empty')
+          if [ -n "${number}" ] && gh issue view "${number}" --json comments --jq '.comments[].body' | grep -q "build-checked:${fingerprint}"; then
+            echo "These sources were already built: the data did not change."
+            exit 0
+          fi
           # One build at a time, and none while a draft release waits for the maintainer.
           drafts=$(gh release list --limit 50 --json isDraft --jq 'map(select(.isDraft)) | length')
           running=$(gh run list --workflow build-dataset.yml --json status --jq 'map(select(.status != "completed")) | length')
@@ -66,4 +74,4 @@ jobs:
             echo "A draft release exists or a build is running: no new build."
             exit 0
           fi
-          gh workflow run build-dataset.yml -f dry_run=false
+          gh workflow run build-dataset.yml -f dry_run=false -f fingerprint="${fingerprint}"
