@@ -9,6 +9,7 @@ use App\Data\Insee\CommuneMovementRecord;
 use App\Enums\CommuneKind;
 use App\Enums\EventModality;
 use App\Models\CommuneEvent;
+use App\Models\CommuneSuccession;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\Test;
@@ -18,6 +19,18 @@ use Tests\TestCase;
 final class ImportMovementsTest extends TestCase
 {
     use RefreshDatabase;
+
+    #[Test]
+    public function it_does_not_delete_the_successions_with_the_events(): void
+    {
+        CogFixtures::import($this->app);
+        $ids = CommuneSuccession::query()->orderBy('id')->pluck('id')->all();
+        $this->assertNotSame([], $ids);
+
+        $this->app->make(ImportMovements::class)->execute([], CogFixtures::snapshot($this->app));
+
+        $this->assertSame($ids, CommuneSuccession::query()->orderBy('id')->pluck('id')->all());
+    }
 
     #[Test]
     public function it_writes_the_movements_by_chunks_without_losing_any(): void
