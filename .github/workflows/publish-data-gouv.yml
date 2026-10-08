@@ -19,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: publish-data-gouv
@@ -55,3 +56,13 @@ jobs:
           fi
           gh workflow run update-data.yml --repo Stanislas-Poisson/French-Postal-Code-Package
 
+      # The issue "A source of the dataset changed" is done once its release is published.
+      - name: Close the issue of the sources
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          for number in $(gh issue list --label data-update --state open --json number --jq '.[].number'); do
+            gh issue close "${number}" --comment "Done: the release ${TAG} is published."
+          done
