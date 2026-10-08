@@ -1,6 +1,7 @@
 name: Publish on data.gouv.fr
 
-# When a release is published, update the resources of the dataset on data.gouv.fr (see docs/data-gouv.md).
+# When a release is published, update the resources of the dataset on data.gouv.fr (see docs/data-gouv.md),
+# then start the update of French-Postal-Code-Package.
 # It only prints the changes (dry run) until the repository variable DATAGOUV_AUTO_PUBLISH is `true`.
 # Started by hand, `apply` decides.
 on:
@@ -40,3 +41,17 @@ jobs:
           else
             python3 .github/scripts/publish_data_gouv.py "${TAG}"
           fi
+
+      # The package looks for a new dataset every Monday. A token that can start a workflow of another
+      # repository (the secret PACKAGE_DISPATCH_TOKEN, Actions: write on French-Postal-Code-Package) starts it now.
+      - name: Start the update of the package
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ secrets.PACKAGE_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "${GH_TOKEN}" ]; then
+            echo "::warning::PACKAGE_DISPATCH_TOKEN is not set: the package will find the release on its weekly run."
+            exit 0
+          fi
+          gh workflow run update-data.yml --repo Stanislas-Poisson/French-Postal-Code-Package
+
