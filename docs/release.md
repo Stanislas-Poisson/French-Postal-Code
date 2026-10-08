@@ -12,7 +12,9 @@ The workflow `Build dataset` (Actions tab, or started by `Watch sources` when a 
 2. It stops if the schema of the restored tables is not the one of the migrations. After a migration that changes these tables, build the baseline by hand once.
 3. It runs the update, then stops if an identifier of the restored data changed or disappeared, or if the update is incomplete.
 4. It exports, writes the release files (the version defaults to the next minor one, `version` overrides it) and keeps them as an artifact for 14 days.
-5. It creates a **draft** release with the files, the notes and the status of the dataset, and comments the issue "A source of the dataset changed".
+5. It compares the export with the CSV files of the latest release, in every column (the points of the BAN are part of the dataset):
+   - if anything differs, it creates a **draft** release with the files, a summary of the changes (rows added, removed, modified and the columns concerned), the notes and the status of the dataset, and comments the issue "A source of the dataset changed";
+   - if nothing differs, it creates no draft: a newer source file does not mean that the data changed. It comments the issue and leaves a marker, so that `Watch sources` does not build the same sources again.
 
 Started by hand, `dry_run` is on by default: the build and the checks run, but no draft is created. Check the draft, then publish it: that creates the tag on `main`, starts `Publish on data.gouv.fr`, which then starts the update of French-Postal-Code-Package.
 
