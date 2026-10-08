@@ -16,7 +16,7 @@ The workflow `Build dataset` (Actions tab, or started by `Watch sources` when a 
    - if anything differs, it creates a **draft** release with the files, a summary of the changes (rows added, removed, modified and the columns concerned), the notes and the status of the dataset, and comments the issue "A source of the dataset changed";
    - if nothing differs, it creates no draft: a newer source file does not mean that the data changed. It comments the issue and leaves a marker, so that `Watch sources` does not build the same sources again.
 
-Started by hand, `dry_run` is on by default: the build and the checks run, but no draft is created. Check the draft, then publish it: that creates the tag on `main`, starts `Publish on data.gouv.fr`, which then starts the update of French-Postal-Code-Package.
+Started by hand, `dry_run` is on by default: the build and the checks run, but no draft is created. Check the draft, then publish it: that is the only manual step. The publication creates the tag on `main` and starts `Publish on data.gouv.fr`, which updates the resources, closes the issue of the sources and starts the update of French-Postal-Code-Package. The package then follows by itself: the pull request of the new data is merged when its CI passes, `develop` is brought to `main`, and the next minor version is tagged (signed) and published, see the README of the package. It stops, and says why, if the layout of the files changed: that is a major release, tagged by hand.
 
 The secret `PACKAGE_DISPATCH_TOKEN` (a token with the right Actions: write on French-Postal-Code-Package) lets the publication start that update at once. Without it, the package finds the release on its weekly run.
 
