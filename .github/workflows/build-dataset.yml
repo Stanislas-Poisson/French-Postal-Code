@@ -3,10 +3,10 @@ name: Build dataset
 # Builds a new version of the dataset and proposes it as a draft release (see docs/release.md).
 #
 # The database of the update holds the history and the identifiers of the dataset, so the build starts from the
-# SQL of the latest release, restored in a fresh database. It stops if the schema of the restored tables is not
+# SQL of the baseline release (the latest one by default), restored in a fresh database. It stops if the schema of the restored tables is not
 # the one of the migrations, if an identifier changed or disappeared, or if the update is incomplete.
 #
-# The draft is created only when the export differs from the latest release, in any column: a newer source file
+# The draft is created only when the export differs from the baseline release, in any column: a newer source file
 # does not mean that the data changed. Otherwise the issue gets a comment and a marker, so that `Watch sources`
 # does not start the build again for the same sources.
 #
@@ -17,6 +17,9 @@ on:
     inputs:
       version:
         description: 'The version of the release (default: the next minor version, 4.0.0 gives 4.1.0)'
+        required: false
+      baseline:
+        description: 'The release whose SQL the build starts from and is compared with (default: the latest release)'
         required: false
       dry_run:
         description: 'Build and check, but create no draft release'
@@ -58,6 +61,7 @@ jobs:
         id: version
         env:
           INPUT_VERSION: ${{ inputs.version }}
+          INPUT_BASELINE: ${{ inputs.baseline }}
         run: |
           latest=$(gh release view --json tagName --jq .tagName)
           IFS=. read -r major minor _ <<< "${latest}"
@@ -66,9 +70,10 @@ jobs:
             echo "::error::The release ${version} already exists, published or draft."
             exit 1
           fi
-          echo "latest=${latest}" >> "${GITHUB_OUTPUT}"
+          baseline="${INPUT_BASELINE:-${latest}}"
+          echo "baseline=${baseline}" >> "${GITHUB_OUTPUT}"
           echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "Latest release ${latest}, building ${version}."
+          echo "Latest release ${latest}, starting from ${baseline}, building ${version}."
 
       - name: Start the database
         run: |
@@ -86,12 +91,12 @@ jobs:
           ${COMPOSE} exec -T php php artisan key:generate
           ${COMPOSE} exec -T php php artisan migrate --force
 
-      - name: Restore the SQL of the latest release
+      - name: Restore the SQL of the baseline release
         env:
-          LATEST: ${{ steps.version.outputs.latest }}
+          BASELINE: ${{ steps.version.outputs.baseline }}
         run: |
           mkdir restore
-          gh release download "${LATEST}" --dir restore --pattern 'french-postal-code-*-sql.zip' --pattern SHA256SUMS
+          gh release download "${BASELINE}" --dir restore --pattern 'french-postal-code-*-sql.zip' --pattern SHA256SUMS
           (cd restore && sha256sum --check --ignore-missing SHA256SUMS)
           unzip -q restore/french-postal-code-*-sql.zip -d restore
 
@@ -99,7 +104,7 @@ jobs:
           ${COMPOSE} exec -T -e MYSQL_PWD=root mysql mysql -uroot frenchpostalcode < restore/dataset.sql
           schema_restored=$(.github/scripts/db-check.sh schema)
           if [ "${schema_migrations}" != "${schema_restored}" ]; then
-            echo "::error::The schema of the SQL of ${LATEST} is not the one of the migrations. Rebuild the baseline by hand, see docs/release.md."
+            echo "::error::The schema of the SQL of ${BASELINE} is not the one of the migrations. Rebuild the baseline by hand, see docs/release.md."
             exit 1
           fi
 
@@ -131,18 +136,18 @@ jobs:
           make release-files VERSION="${VERSION}"
           ${COMPOSE} exec -T php php artisan dataset:status --no-ansi | tee status.txt
 
-      - name: Compare with the latest release
+      - name: Compare with the baseline release
         id: compare
         env:
-          LATEST: ${{ steps.version.outputs.latest }}
+          BASELINE: ${{ steps.version.outputs.baseline }}
         run: |
-          gh release download "${LATEST}" --dir restore --pattern 'french-postal-code-*-csv.zip'
+          gh release download "${BASELINE}" --dir restore --pattern 'french-postal-code-*-csv.zip'
           (cd restore && sha256sum --check --ignore-missing SHA256SUMS)
           mkdir restore/csv
           unzip -q restore/french-postal-code-*-csv.zip -d restore/csv
           python3 .github/scripts/compare_exports.py restore/csv storage/app/exports/csv compare.md
           {
-            echo "### Changes since ${LATEST}"
+            echo "### Changes since ${BASELINE}"
             echo
             cat compare.md
           } >> "${GITHUB_STEP_SUMMARY}"
@@ -157,15 +162,15 @@ jobs:
         if: ${{ !inputs.dry_run && steps.compare.outputs.changed == 'true' }}
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          LATEST: ${{ steps.version.outputs.latest }}
+          BASELINE: ${{ steps.version.outputs.baseline }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           {
-            echo "Built by the workflow Build dataset (${RUN_URL}) from the SQL of the latest release."
+            echo "Built by the workflow Build dataset (${RUN_URL}) from the SQL of ${BASELINE}."
             echo
             echo "Check the files, then publish this draft: that creates the tag ${VERSION} on main and starts the publication on data.gouv.fr."
             echo
-            echo "## Changes since ${LATEST}"
+            echo "## Changes since ${BASELINE}"
             echo
             cat compare.md
             echo
@@ -185,14 +190,14 @@ jobs:
         if: ${{ !inputs.dry_run && steps.compare.outputs.changed == 'false' }}
         env:
           FINGERPRINT: ${{ inputs.fingerprint }}
-          LATEST: ${{ steps.version.outputs.latest }}
+          BASELINE: ${{ steps.version.outputs.baseline }}
         run: |
           number=$(gh issue list --label data-update --state open --json number --jq '.[0].number // empty')
           if [ -z "${number}" ]; then
             exit 0
           fi
           {
-            echo "The build ran on the new sources: the data are identical to ${LATEST}, in every column, so there is no draft."
+            echo "The build ran on the new sources: the data are identical to ${BASELINE}, in every column, so there is no draft."
             echo "The sources are not built again until they change. Close this issue if you do not expect a release."
             if [ -n "${FINGERPRINT}" ]; then
               echo
