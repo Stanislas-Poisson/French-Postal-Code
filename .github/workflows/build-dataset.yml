@@ -66,8 +66,9 @@ jobs:
       - name: Start the database
         run: |
           cp .env.example .env
+          # The files belong to the runner: the container has to write the key, the logs and the exports.
+          chmod -R a+rwX storage bootstrap/cache .env
           ${COMPOSE} up -d mysql redis php
-          ${COMPOSE} exec -T php composer install --no-interaction --prefer-dist --optimize-autoloader
           ${COMPOSE} exec -T php php artisan key:generate
           ${COMPOSE} exec -T php php artisan migrate --force
 
