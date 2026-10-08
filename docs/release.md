@@ -8,11 +8,11 @@ A release is built by the workflow `Build dataset`, or by hand with the steps be
 
 The workflow `Build dataset` (Actions tab, or started by `Watch sources` when a source is newer) does the steps 1, 2, 4 and 5 below in the CI (the tag of the step 3 is created when the draft is published):
 
-1. It restores the SQL of the latest release in a fresh database, after checking the `SHA256SUMS`. The identifiers of the dataset come from that SQL.
+1. It restores the SQL of the baseline release (the latest one, or the `baseline` input) in a fresh database, after checking the `SHA256SUMS`. The identifiers of the dataset come from that SQL.
 2. It stops if the schema of the restored tables is not the one of the migrations. After a migration that changes these tables, build the baseline by hand once.
-3. It runs the update, then stops if an identifier of the restored data changed or disappeared, or if the update is incomplete.
+3. It runs the update, then stops if an identifier of the restored data changed or disappeared (regions, departments, communes, cities, commune successions and reference changes: the package loads the files by identifier), or if the update is incomplete.
 4. It exports, writes the release files (the version defaults to the next minor one, `version` overrides it) and keeps them as an artifact for 14 days.
-5. It compares the export with the CSV files of the latest release, in every column (the points of the BAN are part of the dataset):
+5. It compares the export with the CSV files of the baseline release, in every column (the points of the BAN are part of the dataset):
    - if anything differs, it creates a **draft** release with the files, a summary of the changes (rows added, removed, modified and the columns concerned), the notes and the status of the dataset, and comments the issue "A source of the dataset changed";
    - if nothing differs, it creates no draft: a newer source file does not mean that the data changed. It comments the issue and leaves a marker, so that `Watch sources` does not build the same sources again.
 
