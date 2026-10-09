@@ -17,7 +17,7 @@ The dataset is published on [data.gouv.fr](https://www.data.gouv.fr/datasets/reg
 | checksums | `make release-files` | `SHA256SUMS` | resource "Sommes de contrôle (SHA256SUMS)" (type documentation) | link |
 | `package/*` | `make export --package` | `french-postal-code-X-package.zip` | none: it is the data of the Composer package, not a file to open | |
 
-The three CSV files hosted by data.gouv.fr are identical, byte for byte, to the ones of the CSV archive (same SHA-1 on both sides, checked for 4.0.0). The schemas are the files of the branch `schemas` of this repository.
+The three CSV files hosted by data.gouv.fr are identical, byte for byte, to the ones of the CSV archive (same SHA-1 on both sides, checked for 4.0.0). The schemas are the files of the branch `schemas` of this repository. The workflow `Build dataset` checks the CSV files against them before the release is proposed (`.github/scripts/validate_schemas.py`: columns, types, required, minimum, maximum, pattern, enum and primary key), and the workflow `Stamp schemas` writes the version of a release in their field `version` when it is published. A change of the columns is a major release: the schemas are changed by hand, on their branch, in the same time.
 
 The titles, the descriptions and the numbers they hold (rows of the three tables, counts of `statistics.json`, the version) are written in `.github/data-gouv/resources.json`. For 4.0.0 the script gives back exactly the text that is published today.
 
