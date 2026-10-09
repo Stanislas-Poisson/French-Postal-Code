@@ -30,6 +30,7 @@ final class BuildDatasetStatistics
 
         return new DatasetStatistics(
             generatedAt: now()->toDateString(),
+            builtAt: now()->utc()->toIso8601ZuluString(),
             cogVintage: $this->latestVersion(FetchSources::COG),
             laPosteVersion: $this->latestVersion(FetchSources::LA_POSTE),
             regions: Region::query()->current()->count(),

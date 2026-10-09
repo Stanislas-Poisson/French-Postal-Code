@@ -62,7 +62,7 @@ The secret `PACKAGE_DISPATCH_TOKEN` (a token with the right Actions: write on Fr
 
 ## Knowing when to build
 
-The workflow `Watch sources` runs every day (and from the Actions tab). It compares the sources with the date of the last generation, read in `statistics.json` of the latest release, without downloading them:
+The workflow `Watch sources` runs every day (and from the Actions tab). It compares the sources with the exact time of the last generation (`built_at` in `statistics.json` of the latest release, or the publication of the release for the older ones), without downloading them:
 
 - INSEE COG: a newer vintage, or a file of the latest vintage that changed after the generation (read on the dataset of data.gouv.fr, because INSEE sends no `Last-Modified`);
 - La Poste: the `Last-Modified` header of the file of postal codes.
