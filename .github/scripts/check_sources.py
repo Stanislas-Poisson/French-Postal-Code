@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Tells whether a source of the dataset is newer than the last generation.
 
-The last generation is the date written in `statistics.json`, attached to the latest release. The sources are
+The last generation is the time written in `statistics.json` (`built_at`), attached to the latest release. The sources are
 compared to it with their own public dates, without downloading them:
 
 - INSEE COG: a newer vintage ("Millésime 2027") or a resource of the latest vintage changed after the generation,
@@ -57,7 +57,9 @@ def last_generation() -> tuple[datetime, str | None, str | None]:
     for asset in release.get("assets", []):
         if asset["name"] == "statistics.json":
             stats = read_json(asset["browser_download_url"])
-            generated = parse_date(stats["generated_at"]) if stats.get("generated_at") else parse_date(release["published_at"])
+            # `generated_at` is only a day (midnight): a source changed earlier the same day, and already in the build,
+            # would look newer. Use the exact time of the build, or the publication of the release for older statistics.
+            generated = parse_date(stats["built_at"]) if stats.get("built_at") else parse_date(release["published_at"])
             return generated, stats.get("cog_vintage"), stats.get("laposte_version")
     return parse_date(release["published_at"]), None, None
 

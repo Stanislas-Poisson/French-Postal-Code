@@ -121,6 +121,19 @@ final class ExportDatasetTest extends TestCase
     }
 
     #[Test]
+    public function it_writes_the_exact_time_of_the_generation(): void
+    {
+        $this->command('dataset:export', ['--path' => $this->directory])->assertSuccessful();
+
+        /** @var array<string, mixed> $statistics */
+        $statistics = json_decode((string) file_get_contents($this->directory . '/statistics.json'), true, 512, JSON_THROW_ON_ERROR);
+
+        $this->assertIsString($statistics['built_at']);
+        $this->assertMatchesRegularExpression('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/', $statistics['built_at']);
+        $this->assertSame($statistics['generated_at'], substr($statistics['built_at'], 0, 10));
+    }
+
+    #[Test]
     public function it_writes_the_figures_of_the_dataset_next_to_the_files(): void
     {
         Snapshot::query()->delete();
