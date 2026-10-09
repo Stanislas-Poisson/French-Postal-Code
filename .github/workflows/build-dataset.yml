@@ -16,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'The version of the release (default: the next minor version, 4.0.0 gives 4.1.0)'
+        description: 'The version of the release (default: the next minor version when a source of INSEE or La Poste is newer, 4.0.0 gives 4.1.0, otherwise the next patch version, 4.0.0 gives 4.0.1)'
         required: false
       baseline:
         description: 'The release whose SQL the build starts from and is compared with (default: the latest release)'
@@ -64,8 +64,22 @@ jobs:
           INPUT_BASELINE: ${{ inputs.baseline }}
         run: |
           latest=$(gh release view --json tagName --jq .tagName)
-          IFS=. read -r major minor _ <<< "${latest}"
-          version="${INPUT_VERSION:-${major}.$((minor + 1)).0}"
+          IFS=. read -r major minor patch <<< "${latest}"
+          if [ -n "${INPUT_VERSION}" ]; then
+            version="${INPUT_VERSION}"
+          else
+            # Y when a file of INSEE or La Poste is newer than the latest release, Z when only the BAN can have moved.
+            sources_out="${RUNNER_TEMP}/sources.out"
+            : > "${sources_out}"
+            GITHUB_OUTPUT="${sources_out}" python3 .github/scripts/check_sources.py
+            if grep -q '^changed=true' "${sources_out}"; then
+              version="${major}.$((minor + 1)).0"
+              echo "A source of INSEE or La Poste is newer: minor version."
+            else
+              version="${major}.${minor}.$((patch + 1))"
+              echo "No source of INSEE or La Poste is newer: patch version, for the points of the BAN."
+            fi
+          fi
           if gh release list --limit 200 --json tagName --jq '.[].tagName' | grep -qx "${version}"; then
             echo "::error::The release ${version} already exists, published or draft."
             exit 1
