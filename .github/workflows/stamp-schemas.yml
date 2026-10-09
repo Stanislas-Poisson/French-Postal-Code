@@ -1,0 +1,46 @@
+name: Stamp schemas
+
+# The Table Schemas read by data.gouv.fr are the files of the branch `schemas`. When a release is published, its version
+# is written in their field `version`, so that it is never stale. A change of the columns is a major release: the schemas
+# are changed by hand in the same time, this workflow only writes the version.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The version to write in the schemas (4.1.2)'
+        required: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: stamp-schemas
+
+jobs:
+  stamp:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: schemas
+
+      - name: Write the version in the schemas
+        env:
+          TAG: ${{ github.event.release.tag_name || inputs.tag }}
+        run: |
+          for file in *.schema.json; do
+            jq --indent 2 --arg version "${TAG}" '.version = $version' "${file}" > "${file}.tmp"
+            mv "${file}.tmp" "${file}"
+          done
+
+          if git diff --quiet; then
+            echo "The schemas already hold the version ${TAG}."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --all --message "chore(schemas): stamp the version ${TAG}"
+          git push origin HEAD:schemas

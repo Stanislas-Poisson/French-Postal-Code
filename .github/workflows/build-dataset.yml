@@ -4,7 +4,8 @@ name: Build dataset
 #
 # The database of the update holds the history and the identifiers of the dataset, so the build starts from the
 # SQL of the baseline release (the latest one by default), restored in a fresh database. It stops if the schema of the restored tables is not
-# the one of the migrations, if an identifier changed or disappeared, or if the update is incomplete.
+# the one of the migrations, if an identifier changed or disappeared, if the update is incomplete, or if a file does not
+# respect its schema.
 #
 # The draft is created only when the export differs from the baseline release, in any column: a newer source file
 # does not mean that the data changed. Otherwise the issue gets a comment and a marker, so that `Watch sources`
@@ -149,6 +150,14 @@ jobs:
           make export
           make release-files VERSION="${VERSION}"
           ${COMPOSE} exec -T php php artisan dataset:status --no-ansi | tee status.txt
+
+      # The schemas are read by data.gouv.fr: a file that does not respect them must not be published.
+      - name: Check the files against their schemas
+        run: |
+          mkdir schemas
+          git fetch --quiet --depth=1 origin schemas
+          git archive FETCH_HEAD | tar -x -C schemas
+          python3 .github/scripts/validate_schemas.py schemas storage/app/exports/csv
 
       - name: Compare with the baseline release
         id: compare
