@@ -67,7 +67,7 @@ The workflow `Watch sources` runs every day (and from the Actions tab). It compa
 - INSEE COG: a newer vintage, or a file of the latest vintage that changed after the generation (read on the dataset of data.gouv.fr, because INSEE sends no `Last-Modified`);
 - La Poste: the `Last-Modified` header of the file of postal codes.
 
-When a source is newer it opens the issue "A source of the dataset changed: build a new version" (label `data-update`), updates it every day until a release is made, and starts the workflow `Build dataset` unless a draft release is waiting or a build is running. When nothing changed it does nothing. The update works on the database that holds the history and the identifiers of the dataset, which is why the build restores the SQL of the latest release first: an empty database would give new identifiers.
+When a source is newer it opens the issue "A source of the dataset changed: build a new version" (label `data-update`), updates it every day until a release is made, and starts the workflow `Build dataset` unless a draft release is waiting or a build is running. When nothing changed it does nothing, except every Monday (and with the input `force`): the points of the BAN move without any of these files changing, so the build is started anyway. It creates a draft, in patch version, only when its export differs from the latest release. The update works on the database that holds the history and the identifiers of the dataset, which is why the build restores the SQL of the latest release first: an empty database would give new identifiers.
 
 ## Versioning
 
