@@ -3,7 +3,7 @@
   "name": "reference_changes",
   "title": "Changements détectés",
   "description": "Les changements de régions, de départements et de codes postaux détectés en comparant deux mises à jour. Vide à la première version.",
-  "version": "4.0.0",
+  "version": "4.1.2",
   "missingValues": [
     ""
   ],

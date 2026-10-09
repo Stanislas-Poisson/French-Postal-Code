@@ -3,7 +3,7 @@
   "name": "departments",
   "title": "Départements et collectivités d'outre-mer",
   "description": "Les départements et les collectivités d'outre-mer.",
-  "version": "4.0.0",
+  "version": "4.1.2",
   "missingValues": [
     ""
   ],

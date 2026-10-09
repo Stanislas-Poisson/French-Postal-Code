@@ -3,7 +3,7 @@
   "name": "commune_successions",
   "title": "Successions de codes de commune",
   "description": "Pour un ancien code INSEE, le ou les codes qui lui succèdent, la nature du changement et sa date.",
-  "version": "4.0.0",
+  "version": "4.1.2",
   "missingValues": [
     ""
   ],
