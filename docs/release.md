@@ -11,7 +11,7 @@ The workflow `Build dataset` (Actions tab, or started by `Watch sources` when a 
 1. It restores the SQL of the baseline release (the latest one, or the `baseline` input) in a fresh database, after checking the `SHA256SUMS`. The identifiers of the dataset come from that SQL.
 2. It stops if the schema of the restored tables is not the one of the migrations. After a migration that changes these tables, build the baseline by hand once.
 3. It runs the update, then stops if an identifier of the restored data changed or disappeared (regions, departments, communes, cities, commune successions and reference changes: the package loads the files by identifier), or if the update is incomplete.
-4. It exports, writes the release files (the version defaults to the next minor one, `version` overrides it) and keeps them as an artifact for 14 days.
+4. It exports, writes the release files (the version is the next minor one when a source of INSEE or La Poste is newer, the next patch one otherwise, see [Versioning](#versioning); `version` overrides it) and keeps them as an artifact for 14 days.
 5. It compares the export with the CSV files of the baseline release, in every column (the points of the BAN are part of the dataset):
    - if anything differs, it creates a **draft** release with the files, a summary of the changes (rows added, removed, modified and the columns concerned), the notes and the status of the dataset, and comments the issue "A source of the dataset changed";
    - if nothing differs, it creates no draft: a newer source file does not mean that the data changed. It comments the issue and leaves a marker, so that `Watch sources` does not build the same sources again.
@@ -71,7 +71,13 @@ When a source is newer it opens the issue "A source of the dataset changed: buil
 
 ## Versioning
 
-The version number follows SemVer. A change to the schema of the files, for example removing a column, is a major change.
+The version number follows SemVer, from what changed:
+
+- **Z** (4.0.0 to 4.0.1): only the points of the BAN changed (`latitude`, `longitude`, `address_count`), the files of INSEE and La Poste did not.
+- **Y** (4.0.1 to 4.1.0): a file of INSEE (COG) or La Poste is newer. Z goes back to 0.
+- **X** (4.1.0 to 5.0.0): the schema of the files changed, for example a column removed. Tagged by hand.
+
+The workflow `Build dataset` chooses between Y and Z: it asks the check of `Watch sources` whether a source is newer than the latest release. The `version` input overrides it. French-Postal-Code-Package follows the same rule from the release of the builder its data come from.
 
 ## Statistics cards
 
