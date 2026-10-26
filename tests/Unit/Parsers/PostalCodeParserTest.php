@@ -7,7 +7,7 @@ namespace Tests\Unit\Parsers;
 use App\Data\Postal\PostalRecord;
 use App\Services\Parsers\CsvFile;
 use App\Services\Parsers\LaPoste\PostalCodeParser;
-use Illuminate\Support\Facades\File;
+use Illuminate\Filesystem\Filesystem;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\TestCase;
 
@@ -23,7 +23,7 @@ final class PostalCodeParserTest extends TestCase
             $records = iterator_to_array((new PostalCodeParser(new CsvFile))->parse($path), false);
         }
         finally {
-            File::delete($path);
+            (new Filesystem)->delete($path);
         }
 
         $this->assertCount(1, $records);
@@ -52,7 +52,7 @@ final class PostalCodeParserTest extends TestCase
             $records = iterator_to_array((new PostalCodeParser(new CsvFile))->parse($path), false);
         }
         finally {
-            File::delete($path);
+            (new Filesystem)->delete($path);
         }
 
         $this->assertSame([], $records);
