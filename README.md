@@ -134,7 +134,7 @@ The matching `php artisan` commands:
 
 ## Published files
 
-The exports are attached to the [releases][releases] of the repository and published on [data.gouv.fr][data-gouv]. They contain one file per table, in CSV, JSON and SQL.
+The exports are attached to the [releases][releases] of the repository and published on [data.gouv.fr][data-gouv]. They contain one file per table, in CSV, JSON and SQL. A new version is published by itself, from the kind of change: **patch** when only the GPS points moved (at most once a week, on Monday), **minor** when anything else changed (at once), **major** when the structure of the files changed (reviewed by hand, see [`docs/release.md`][release]).
 
 ![Content of the dataset][img-dataset]
 
