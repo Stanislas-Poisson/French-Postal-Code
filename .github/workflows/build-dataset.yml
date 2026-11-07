@@ -1,24 +1,36 @@
 name: Build dataset
 
-# Builds a new version of the dataset and proposes it as a draft release (see docs/release.md).
+# Builds a new version of the dataset and publishes it, or proposes it as a draft release to review (see docs/release.md).
 #
 # The database of the update holds the history and the identifiers of the dataset, so the build starts from the
 # SQL of the baseline release (the latest one by default), restored in a fresh database. It stops if the schema of the restored tables is not
 # the one of the migrations, if an identifier changed or disappeared, if the update is incomplete, or if a file does not
 # respect its schema.
 #
-# The draft is created only when the export differs from the baseline release, in any column: a newer source file
-# does not mean that the data changed. Otherwise the issue gets a comment and a marker, so that `Watch sources`
-# does not start the build again for the same sources.
+# The export is compared with the baseline release, in every column (a newer source file does not mean that the data
+# changed), and the kind of change gives the version:
 #
-# The maintainer reviews the draft and publishes it: that creates the tag and starts `Publish on data.gouv.fr`.
-# Started by `Watch sources` when a source is newer, or by hand. With `dry_run` on, no draft and no comment.
+# - nothing differs: no release, the issue gets a comment and a marker, so that `Watch sources` does not start the
+#   build again for the same sources;
+# - patch (only the points of the BAN of cities.csv): published when `publish_patch` is on (Monday, or `force`),
+#   otherwise kept for that day, with a marker;
+# - minor (any other change of the rows): published at once;
+# - major (the structure of the files changed), or more than 1 percent of the rows of a file removed: a draft release,
+#   and a notification, because the maintainer has to review it.
+#
+# Publishing creates the signed tag on main and the release with the token RELEASE_TOKEN (a maintainer: the rules of
+# the tags only let one create them), which starts `Publish on data.gouv.fr` and `Stamp schemas`. Without that token the
+# release stays a draft. Started by `Watch sources` or by hand. With `dry_run` on, nothing is created and nothing is sent.
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'The version of the release (default: the next minor version when a source of INSEE or La Poste is newer, 4.0.0 gives 4.1.0, otherwise the next patch version, 4.0.0 gives 4.0.1)'
+        description: 'The version of the release, always proposed as a draft (default: from the kind of change, 4.0.0 gives 4.1.0 for a minor change, 4.0.1 for a patch one, 5.0.0 for a major one)'
         required: false
+      publish_patch:
+        description: 'Publish a patch release (only the points of the BAN changed): set by Watch sources on Monday'
+        type: boolean
+        default: false
       baseline:
         description: 'The release whose SQL the build starts from and is compared with (default: the latest release)'
         required: false
@@ -41,6 +53,7 @@ concurrency:
 env:
   GH_TOKEN: ${{ github.token }}
   COMPOSE: docker compose -p frenchpostalcode
+  NTFY_URL: ${{ secrets.NTFY_URL }}
 
 jobs:
   build:
@@ -48,7 +61,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     steps:
+      # The token of the maintainer pushes the tag of a release (see the rules of the tags); without it, no release is published.
       - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
       - uses: shivammathur/setup-php@v2
         with:
@@ -58,37 +74,16 @@ jobs:
       # The Makefile includes files of the Composer packages.
       - run: composer install --no-interaction --prefer-dist
 
-      - name: Choose the version
+      - name: Choose the baseline
         id: version
         env:
-          INPUT_VERSION: ${{ inputs.version }}
           INPUT_BASELINE: ${{ inputs.baseline }}
         run: |
           latest=$(gh release view --json tagName --jq .tagName)
-          IFS=. read -r major minor patch <<< "${latest}"
-          if [ -n "${INPUT_VERSION}" ]; then
-            version="${INPUT_VERSION}"
-          else
-            # Y when a file of INSEE or La Poste is newer than the latest release, Z when only the BAN can have moved.
-            sources_out="${RUNNER_TEMP}/sources.out"
-            : > "${sources_out}"
-            GITHUB_OUTPUT="${sources_out}" python3 .github/scripts/check_sources.py
-            if grep -q '^changed=true' "${sources_out}"; then
-              version="${major}.$((minor + 1)).0"
-              echo "A source of INSEE or La Poste is newer: minor version."
-            else
-              version="${major}.${minor}.$((patch + 1))"
-              echo "No source of INSEE or La Poste is newer: patch version, for the points of the BAN."
-            fi
-          fi
-          if gh release list --limit 200 --json tagName --jq '.[].tagName' | grep -qx "${version}"; then
-            echo "::error::The release ${version} already exists, published or draft."
-            exit 1
-          fi
           baseline="${INPUT_BASELINE:-${latest}}"
+          echo "latest=${latest}" >> "${GITHUB_OUTPUT}"
           echo "baseline=${baseline}" >> "${GITHUB_OUTPUT}"
-          echo "version=${version}" >> "${GITHUB_OUTPUT}"
-          echo "Latest release ${latest}, starting from ${baseline}, building ${version}."
+          echo "Latest release ${latest}, starting from ${baseline}."
 
       - name: Start the database
         run: |
@@ -140,16 +135,12 @@ jobs:
           fi
           echo "No identifier changed: $(wc -l < identifiers-before.txt) before, $(wc -l < identifiers-after.txt) after."
 
-      - name: Export and zip the release files
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
+      - name: Export the files
         run: |
           # The container writes the exports and the runner writes the SQL dump and the zips: share the directory.
           mkdir -p storage/app/exports/sql
           chmod -R a+rwX storage/app/exports
           make export
-          make release-files VERSION="${VERSION}"
-          ${COMPOSE} exec -T php php artisan dataset:status --no-ansi | tee status.txt
 
       # The schemas are read by data.gouv.fr: a file that does not respect them must not be published.
       - name: Check the files against their schemas
@@ -175,24 +166,85 @@ jobs:
             cat compare.md
           } >> "${GITHUB_STEP_SUMMARY}"
 
+      - name: Choose the version and the action
+        id: next
+        env:
+          INPUT_VERSION: ${{ inputs.version }}
+          PUBLISH_PATCH: ${{ inputs.publish_patch }}
+          LATEST: ${{ steps.version.outputs.latest }}
+          CHANGED: ${{ steps.compare.outputs.changed }}
+          KIND: ${{ steps.compare.outputs.kind }}
+          REVIEW: ${{ steps.compare.outputs.review }}
+          CAN_PUBLISH: ${{ secrets.RELEASE_TOKEN != '' && secrets.GPG_PRIVATE_KEY_B64 != '' }}
+        run: |
+          IFS=. read -r major minor patch <<< "${LATEST}"
+          case "${KIND}" in
+            major) version="$((major + 1)).0.0" ;;
+            minor) version="${major}.$((minor + 1)).0" ;;
+            *) version="${major}.${minor}.$((patch + 1))" ;;
+          esac
+
+          # none: nothing to release. hold: a patch kept for the day of the control. draft: to review. publish: by itself.
+          if [ "${CHANGED}" != "true" ]; then
+            action=none
+          elif [ -n "${INPUT_VERSION}" ]; then
+            version="${INPUT_VERSION}"
+            action=draft
+          elif [ "${REVIEW}" = "true" ]; then
+            action=draft
+          elif [ "${KIND}" = "patch" ] && [ "${PUBLISH_PATCH}" != "true" ]; then
+            action=hold
+          elif [ "${CAN_PUBLISH}" != "true" ]; then
+            echo "::warning::RELEASE_TOKEN or GPG_PRIVATE_KEY_B64 is not set: the release stays a draft."
+            action=draft
+          else
+            action=publish
+          fi
+
+          if gh release list --limit 200 --json tagName --jq '.[].tagName' | grep -qx "${version}"; then
+            echo "::error::The release ${version} already exists, published or draft."
+            exit 1
+          fi
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+          echo "action=${action}" >> "${GITHUB_OUTPUT}"
+          echo "Latest release ${LATEST}, kind of change ${KIND}: ${version}, action ${action}."
+
+      - name: Zip the release files
+        if: steps.next.outputs.action != 'none' && steps.next.outputs.action != 'hold'
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+        run: |
+          make release-files VERSION="${VERSION}"
+          ${COMPOSE} exec -T php php artisan dataset:status --no-ansi | tee status.txt
+
       - uses: actions/upload-artifact@v7
+        if: steps.next.outputs.action != 'none' && steps.next.outputs.action != 'hold'
         with:
           name: release-files
           path: storage/app/exports/release/*
           retention-days: 14
 
-      - name: Create the draft release
-        if: ${{ !inputs.dry_run && steps.compare.outputs.changed == 'true' }}
+      - name: Write the notes of the release
+        if: ${{ !inputs.dry_run && (steps.next.outputs.action == 'draft' || steps.next.outputs.action == 'publish') }}
         env:
-          VERSION: ${{ steps.version.outputs.version }}
+          VERSION: ${{ steps.next.outputs.version }}
           BASELINE: ${{ steps.version.outputs.baseline }}
+          KIND: ${{ steps.compare.outputs.kind }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          ACTION: ${{ steps.next.outputs.action }}
+          REASON: ${{ steps.compare.outputs.review_reason }}
         run: |
           {
-            echo "Built by the workflow Build dataset (${RUN_URL}) from the SQL of ${BASELINE}."
+            echo "Built by the workflow Build dataset (${RUN_URL}) from the SQL of ${BASELINE}: ${KIND} change."
             echo
-            echo "Check the files, then publish this draft: that creates the tag ${VERSION} on main and starts the publication on data.gouv.fr."
-            echo
+            if [ "${ACTION}" = "draft" ]; then
+              echo "Check the files, then publish this draft: that creates the tag ${VERSION} on main and starts the publication on data.gouv.fr."
+              if [ -n "${REASON}" ]; then
+                echo
+                echo "To review: ${REASON}."
+              fi
+              echo
+            fi
             echo "## Changes since ${BASELINE}"
             echo
             cat compare.md
@@ -201,30 +253,87 @@ jobs:
             cat status.txt
             echo '```'
           } > notes.md
+
+      - name: Create the draft release
+        if: ${{ !inputs.dry_run && steps.next.outputs.action == 'draft' }}
+        env:
+          VERSION: ${{ steps.next.outputs.version }}
+          REASON: ${{ steps.compare.outputs.review_reason }}
+        run: |
           gh release create "${VERSION}" --draft --target main --title "French-postal-code-${VERSION}" \
             --notes-file notes.md --generate-notes storage/app/exports/release/*
 
           number=$(gh issue list --label data-update --state open --json number --jq '.[0].number // empty')
           if [ -n "${number}" ]; then
-            gh issue comment "${number}" --body "A draft release ${VERSION} is ready: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases. Check it and publish it."
+            gh issue comment "${number}" --body "A draft release ${VERSION} is ready and has to be reviewed: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases. Check it and publish it."
           fi
+          curl -fsS -m 15 -H "Title: French-Postal-Code ${VERSION} to review" -H "Priority: high" \
+            -d "A draft release waits for a review: ${REASON:-the structure of the files changed}. ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases" \
+            "${NTFY_URL}" > /dev/null || echo "The ntfy alert could not be sent."
 
-      - name: Report that the data did not change
-        if: ${{ !inputs.dry_run && steps.compare.outputs.changed == 'false' }}
+      # The tag is signed with the key of the bot and pushed by the maintainer token: the rules of the tags only let a
+      # maintainer create them. The release is created by the same token, so that its publication starts the other workflows
+      # (a release created with the token of the workflow would start none).
+      - name: Publish the release
+        if: ${{ !inputs.dry_run && steps.next.outputs.action == 'publish' }}
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+          GPG_PRIVATE_KEY_B64: ${{ secrets.GPG_PRIVATE_KEY_B64 }}
+          SIGNER_NAME: ${{ secrets.RELEASE_SIGNER_NAME }}
+          SIGNER_EMAIL: ${{ secrets.RELEASE_SIGNER_EMAIL }}
+          VERSION: ${{ steps.next.outputs.version }}
+          KIND: ${{ steps.compare.outputs.kind }}
+        run: |
+          if [ -z "${SIGNER_NAME}" ] || [ -z "${SIGNER_EMAIL}" ]; then
+            echo "::error::RELEASE_SIGNER_NAME or RELEASE_SIGNER_EMAIL is not set."
+            exit 1
+          fi
+          printf '%s' "${GPG_PRIVATE_KEY_B64}" | base64 -d | gpg --batch --import
+          key=$(gpg --list-secret-keys --with-colons | awk -F: '/^fpr/ {print $10; exit}')
+          git config user.name "${SIGNER_NAME}"
+          git config user.email "${SIGNER_EMAIL}"
+          git config user.signingkey "${key}"
+
+          git fetch --quiet origin main
+          git tag -s "${VERSION}" -m "${VERSION}" -m "Dataset ${KIND} release." origin/main
+          git tag -v "${VERSION}"
+          git push origin "${VERSION}"
+
+          gh release create "${VERSION}" --verify-tag --latest --title "French-postal-code-${VERSION}" \
+            --notes-file notes.md --generate-notes storage/app/exports/release/*
+
+          curl -fsS -m 15 -H "Title: French-Postal-Code ${VERSION} published" -H "Priority: low" \
+            -d "${KIND} release published by itself. ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/releases/tag/${VERSION}" \
+            "${NTFY_URL}" > /dev/null || echo "The ntfy message could not be sent."
+
+      - name: Report that there is no release
+        if: ${{ !inputs.dry_run && (steps.next.outputs.action == 'none' || steps.next.outputs.action == 'hold') }}
         env:
           FINGERPRINT: ${{ inputs.fingerprint }}
           BASELINE: ${{ steps.version.outputs.baseline }}
+          ACTION: ${{ steps.next.outputs.action }}
         run: |
           number=$(gh issue list --label data-update --state open --json number --jq '.[0].number // empty')
           if [ -z "${number}" ]; then
             exit 0
           fi
           {
-            echo "The build ran on the new sources: the data are identical to ${BASELINE}, in every column, so there is no draft."
-            echo "The sources are not built again until they change. Close this issue if you do not expect a release."
+            if [ "${ACTION}" = "hold" ]; then
+              echo "The build ran on the new sources: only the points of the BAN changed since ${BASELINE}, a patch release, which is published on Monday."
+            else
+              echo "The build ran on the new sources: the data are identical to ${BASELINE}, in every column, so there is no release."
+              echo "The sources are not built again until they change. Close this issue if you do not expect a release."
+            fi
             if [ -n "${FINGERPRINT}" ]; then
               echo
               echo "<!-- build-checked:${FINGERPRINT} -->"
             fi
           } > comment.md
           gh issue comment "${number}" --body-file comment.md
+
+      - name: Tell that the build failed
+        if: ${{ failure() && !inputs.dry_run }}
+        run: |
+          curl -fsS -m 15 -H "Title: French-Postal-Code build failed" -H "Priority: high" \
+            -d "The workflow Build dataset failed: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            "${NTFY_URL}" > /dev/null || echo "The ntfy alert could not be sent."
