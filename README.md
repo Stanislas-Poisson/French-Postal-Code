@@ -136,9 +136,9 @@ The matching `php artisan` commands:
 
 The exports are attached to the [releases][releases] of the repository and published on [data.gouv.fr][data-gouv]. They contain one file per table, in CSV, JSON and SQL.
 
-![Content of the dataset and downloads by format][img-dataset]
+![Content of the dataset][img-dataset]
 
-![Usage statistics of the dataset and the repository][img-stats]
+![Statistics of the dataset on data.gouv.fr][img-data-gouv] ![Statistics of the repository on GitHub][img-github]
 
 ## Development
 
@@ -209,5 +209,6 @@ Made by Stanislas Poisson _(Zairakai)_
 [badge-twitch]: https://img.shields.io/badge/Twitch-9146ff?style=flat-square&logo=twitch&logoColor=white
 [badge-linktree]: https://img.shields.io/badge/Linktree-43e55e?style=flat-square&logo=linktree&logoColor=white
 [badge-support]: https://img.shields.io/badge/Support_the_stream-ff5a5f?style=flat-square&logo=githubsponsors&logoColor=white
-[img-stats]: https://raw.githubusercontent.com/Stanislas-Poisson/Stanislas-Poisson/main/assets/projects/french-postal-code-usage.svg
+[img-data-gouv]: https://raw.githubusercontent.com/Stanislas-Poisson/Stanislas-Poisson/main/assets/projects/french-postal-code-datagouv.svg
+[img-github]: https://raw.githubusercontent.com/Stanislas-Poisson/Stanislas-Poisson/main/assets/projects/french-postal-code-github.svg
 [img-dataset]: https://raw.githubusercontent.com/Stanislas-Poisson/Stanislas-Poisson/main/assets/projects/french-postal-code-dataset.svg

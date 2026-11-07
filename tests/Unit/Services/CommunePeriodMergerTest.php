@@ -28,7 +28,7 @@ final class CommunePeriodMergerTest extends TestCase
     public function it_keeps_the_periods_of_every_code(): void
     {
         $periods = (new CommunePeriodMerger)->merge([
-            $this->record('01001', 'L\'Abergement-Clémenciat', '1943-01-01', null),
+            $this->record('01001', "L'Abergement-Clémenciat", '1943-01-01', null),
             $this->record('01002', "L'Abergement-de-Varey", '1943-01-01', null),
         ], []);
 
