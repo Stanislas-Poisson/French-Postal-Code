@@ -27,7 +27,7 @@
     "require-dev": {
         "fakerphp/faker": "^1.23",
         "mockery/mockery": "^1.6",
-        "phpunit/phpunit": "^12.5.12",
+        "phpunit/phpunit": "^13.4.6",
         "zairakai/laravel-dev-tools": "^4.0"
     },
     "autoload": {
