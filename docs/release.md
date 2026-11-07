@@ -81,7 +81,7 @@ When a source is newer it opens the issue "A source of the dataset changed: buil
 
 The version number follows SemVer, from what the export changed compared to the latest release (the script `.github/scripts/compare_exports.py` decides):
 
-- **Z** (4.0.0 to 4.0.1): only the points of the BAN changed, that is `address_count`, `latitude` and `longitude` of `cities.csv`. Published on Monday.
+- **Z** (4.0.0 to 4.0.1): only the points of the BAN changed, that is `address_count`, `latitude` and `longitude` of `cities.csv`, and `coordinate_source` going from `nominatim` to `ban` when a city gets its first point of the BAN. Published on Monday.
 - **Y** (4.0.1 to 4.1.0): anything else in the rows: a row added or removed, or another column modified, in any file. Z goes back to 0. Published at once.
 - **X** (4.1.0 to 5.0.0): the structure of the files changed (the columns of a file, a file added or removed). Always a draft, then tagged by hand after the change of the schemas.
 
