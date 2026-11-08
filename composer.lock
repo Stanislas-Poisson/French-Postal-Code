@@ -10754,16 +10754,16 @@
         },
         {
             "name": "stanislas-poisson/php-dev-tools",
-            "version": "1.1.2",
+            "version": "1.1.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Stanislas-Poisson/php-dev-tools.git",
-                "reference": "cdffe9f2fb154cc6f4ebf838412394ab71de25c0"
+                "reference": "51eaf7441e25247ad81ea5b0ce70e7d2e01b5c89"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Stanislas-Poisson/php-dev-tools/zipball/cdffe9f2fb154cc6f4ebf838412394ab71de25c0",
-                "reference": "cdffe9f2fb154cc6f4ebf838412394ab71de25c0",
+                "url": "https://api.github.com/repos/Stanislas-Poisson/php-dev-tools/zipball/51eaf7441e25247ad81ea5b0ce70e7d2e01b5c89",
+                "reference": "51eaf7441e25247ad81ea5b0ce70e7d2e01b5c89",
                 "shasum": ""
             },
             "require": {
@@ -10846,7 +10846,7 @@
                     "type": "patreon"
                 }
             ],
-            "time": "2026-10-26T14:31:33+00:00"
+            "time": "2026-11-08T15:24:37+00:00"
         },
         {
             "name": "symfony/cache",
@@ -11792,16 +11792,16 @@
         },
         {
             "name": "zairakai/laravel-dev-tools",
-            "version": "4.11.0",
+            "version": "4.13.0",
             "source": {
                 "type": "git",
                 "url": "https://gitlab.com/zairakai/php-packages/laravel-dev-tools.git",
-                "reference": "212f2fd70c49d2da5c0a013faa5febda0273a558"
+                "reference": "926115d11c3901034524e8a151ea25c10b00bff6"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://gitlab.com/api/v4/projects/zairakai%2Fphp-packages%2Flaravel-dev-tools/repository/archive.zip?sha=212f2fd70c49d2da5c0a013faa5febda0273a558",
-                "reference": "212f2fd70c49d2da5c0a013faa5febda0273a558",
+                "url": "https://gitlab.com/api/v4/projects/zairakai%2Fphp-packages%2Flaravel-dev-tools/repository/archive.zip?sha=926115d11c3901034524e8a151ea25c10b00bff6",
+                "reference": "926115d11c3901034524e8a151ea25c10b00bff6",
                 "shasum": ""
             },
             "require": {
@@ -11811,7 +11811,7 @@
                 "larastan/larastan": "^3.14.0",
                 "php": "^8.4",
                 "phpmetrics/phpmetrics": "^2.11",
-                "stanislas-poisson/php-dev-tools": "^1.1.2"
+                "stanislas-poisson/php-dev-tools": "^1.1.3"
             },
             "require-dev": {
                 "composer/composer": "^2.11.1",
@@ -11904,7 +11904,7 @@
                     "type": "patreon"
                 }
             ],
-            "time": "2026-11-05T05:16:04+00:00"
+            "time": "2026-11-08T17:17:56+00:00"
         }
     ],
     "aliases": [],

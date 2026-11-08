@@ -66,7 +66,11 @@
         "rector:fix": "bash vendor/zairakai/laravel-dev-tools/scripts/rector-fix.sh",
         "test:coverage": "COVERAGE=true bash vendor/zairakai/laravel-dev-tools/scripts/test.sh",
         "test:unit": "TESTSUITE=Unit bash vendor/zairakai/laravel-dev-tools/scripts/test.sh",
-        "test": "bash vendor/zairakai/laravel-dev-tools/scripts/test.sh"
+        "test": "bash vendor/zairakai/laravel-dev-tools/scripts/test.sh",
+        "cs:fix": "bash vendor/zairakai/laravel-dev-tools/scripts/cs-fix.sh",
+        "quality": "make quality",
+        "quality:fast": "make quality-fast",
+        "quality:fix": "make quality-fix"
     },
     "extra": {
         "laravel": {
