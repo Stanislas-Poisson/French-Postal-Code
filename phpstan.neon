@@ -10,3 +10,15 @@ parameters:
         - app
         - tests
     tmpDir: build/phpstan
+    # Strict rules of php-dev-tools that this project does not follow yet. TEMPORARY: reduce this list rule by rule.
+    ignoreErrors:
+        -
+            identifier: staticMethod.dynamicCall # $this->assertSame() in the tests
+        -
+            identifier: method.childReturnType
+        -
+            identifier: ternary.shortNotAllowed
+        -
+            identifier: ternary.condNotBoolean
+        -
+            identifier: booleanNot.exprNotBoolean
