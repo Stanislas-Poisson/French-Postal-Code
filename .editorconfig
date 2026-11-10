@@ -3,16 +3,22 @@ root = true
 [*]
 charset = utf-8
 end_of_line = lf
-indent_size = 4
+indent_size = 2
 indent_style = space
 insert_final_newline = true
 trim_trailing_whitespace = true
 
+[*.php]
+indent_size = 4
+max_line_length = 120
+
+[*.{sh,bash}]
+indent_size = 2
+max_line_length = 80
+
 [*.md]
 trim_trailing_whitespace = false
+max_line_length = 120
 
-[*.{yml,yaml}]
-indent_size = 2
-
-[{compose,docker-compose}.{yml,yaml}]
-indent_size = 4
+[{Makefile,*.mk}]
+indent_style = tab
